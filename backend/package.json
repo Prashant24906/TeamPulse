@@ -21,6 +21,7 @@
     "jsonwebtoken": "^9.0.3",
     "pg": "^8.23.0",
     "postgres": "^3.4.9",
+    "socket.io": "^4.8.3",
     "zod": "^4.6.1"
   },
   "devDependencies": {

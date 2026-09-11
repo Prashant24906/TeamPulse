@@ -4,6 +4,10 @@ import helmet from 'helmet';
 import { env } from './config/env';
 import { sql } from './config/database';
 import { notFoundHandler, errorHandler } from './middleware/error.middleware';
+import authRouter    from './routes/auth.routes';
+import teamRouter    from './routes/team.routes';
+import projectRouter from './routes/project.routes';
+import taskRouter    from './routes/task.routes';
 
 const app = express();
 
@@ -51,11 +55,12 @@ app.get('/health', async (_req: Request, res: Response, next: NextFunction) => {
 });
 
 // ---------------------------------------------------------------------------
-// API routes (Phase 2+)
+// API routes
 // ---------------------------------------------------------------------------
-// Routes will be mounted here as they are implemented, e.g.:
-//   import authRouter from './routes/auth.routes';
-//   app.use('/api/v1/auth', authRouter);
+app.use('/api/auth',     authRouter);
+app.use('/api/teams',    teamRouter);
+app.use('/api/projects', projectRouter);
+app.use('/api/tasks',    taskRouter);
 
 // ---------------------------------------------------------------------------
 // 404 + error handlers — must be last

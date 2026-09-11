@@ -1,33 +1,39 @@
+import { createServer } from 'http';
 import { env } from './config/env';
 import { connectDB } from './config/database';
 import app from './app';
-
+import { initSocket } from './websocket/socket';
 
 // ---------------------------------------------------------------------------
 // server.ts — entry point
 //
 // Responsibilities:
 //   1. Verify the DB connection before accepting traffic
-//   2. Start the HTTP server
-//   3. Handle graceful shutdown on SIGTERM / SIGINT
+//   2. Attach Socket.IO to the HTTP server
+//   3. Start listening
+//   4. Handle graceful shutdown on SIGTERM / SIGINT
 // ---------------------------------------------------------------------------
 
 async function start(): Promise<void> {
-  // 1. Verify DB connectivity first — fail fast if Neon is unreachable
+  // 1. Verify DB connectivity first — fail fast if Supabase is unreachable
   await connectDB();
 
-  // 2. Start HTTP server
-  const server = app.listen(env.PORT, () => {
+  // 2. Create HTTP server and attach Socket.IO to it
+  const httpServer = createServer(app);
+  initSocket(httpServer);
+
+  // 3. Start listening
+  httpServer.listen(env.PORT, () => {
     console.log(
       `[server] Running in ${env.NODE_ENV} mode on http://localhost:${env.PORT}`
     );
     console.log(`[server] Health check → http://localhost:${env.PORT}/health`);
   });
 
-  // 3. Graceful shutdown
+  // 4. Graceful shutdown
   const shutdown = (signal: string) => {
     console.log(`[server] Received ${signal}. Shutting down gracefully...`);
-    server.close(() => {
+    httpServer.close(() => {
       console.log('[server] HTTP server closed.');
       process.exit(0);
     });

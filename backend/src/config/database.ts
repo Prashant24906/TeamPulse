@@ -29,7 +29,7 @@ export async function connectDB(): Promise<void> {
 export async function withTransaction<T>(
   fn: (tx: typeof sql) => Promise<T>
 ): Promise<T> {
-  return sql.begin(fn);
+  return sql.begin(fn as any) as any;
 }
 
 export { sql };
