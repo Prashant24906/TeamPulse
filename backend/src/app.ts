@@ -8,6 +8,7 @@ import authRouter    from './routes/auth.routes';
 import teamRouter    from './routes/team.routes';
 import projectRouter from './routes/project.routes';
 import taskRouter    from './routes/task.routes';
+import { apiRateLimit } from './middleware/rateLimit.middleware';
 
 const app = express();
 
@@ -55,8 +56,9 @@ app.get('/health', async (_req: Request, res: Response, next: NextFunction) => {
 });
 
 // ---------------------------------------------------------------------------
-// API routes
+// API routes — global rate limit applied here
 // ---------------------------------------------------------------------------
+app.use('/api', apiRateLimit);
 app.use('/api/auth',     authRouter);
 app.use('/api/teams',    teamRouter);
 app.use('/api/projects', projectRouter);

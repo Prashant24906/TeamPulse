@@ -9,6 +9,7 @@ import type {
 } from '../validators/team.validator';
 import { emitToTeam } from '../websocket/emit';
 import { WS_EVENTS } from '../websocket/events';
+import { cacheGet, cacheSet, cacheInvalidate, CacheKeys } from '../utils/cache';
 
 
 // Role hierarchy for comparisons
@@ -44,8 +45,16 @@ export async function getTeam(userId: string, teamId: string) {
   const role = await teamRepo.findMemberRole(teamId, userId);
   if (!role) throw new AppError(403, 'You are not a member of this team');
 
+  // Cache-aside: check Redis first, fall back to DB on miss
+  const cacheKey = CacheKeys.team(teamId);
+  const cached = await cacheGet<Awaited<ReturnType<typeof teamRepo.findTeamById>>>(cacheKey);
+  if (cached) return { ...cached, role };
+
   const team = await teamRepo.findTeamById(teamId);
   if (!team) throw new AppError(404, 'Team not found');
+
+  // Store in Redis (TTL: 5 min) — role is caller-specific so not cached
+  await cacheSet(cacheKey, team);
 
   return { ...team, role };
 }
@@ -76,6 +85,9 @@ export async function updateTeam(
 
   const updated = await teamRepo.updateTeam(teamId, input);
 
+  // Invalidate cache — PostgreSQL is now ahead of Redis
+  await cacheInvalidate(CacheKeys.team(teamId));
+
   emitToTeam(teamId, WS_EVENTS.TEAM_UPDATED, { teamId, changes: input });
 
   return updated;
@@ -91,6 +103,9 @@ export async function deleteTeam(userId: string, teamId: string) {
   if (role !== 'OWNER') throw new AppError(403, 'Only the OWNER can delete the team');
 
   await teamRepo.deleteTeam(teamId);
+
+  // Invalidate cache
+  await cacheInvalidate(CacheKeys.team(teamId));
 
   // Note: no emit here — members in the room will lose the room on their
   // next reconnect. The REST response is the source of truth.

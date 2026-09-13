@@ -1,6 +1,7 @@
 import { createServer } from 'http';
 import { env } from './config/env';
 import { connectDB } from './config/database';
+import { connectRedis, disconnectRedis } from './config/redis';
 import app from './app';
 import { initSocket } from './websocket/socket';
 
@@ -18,6 +19,9 @@ async function start(): Promise<void> {
   // 1. Verify DB connectivity first — fail fast if Supabase is unreachable
   await connectDB();
 
+  // 2. Connect to Redis (non-fatal if unavailable)
+  await connectRedis();
+
   // 2. Create HTTP server and attach Socket.IO to it
   const httpServer = createServer(app);
   initSocket(httpServer);
@@ -33,7 +37,8 @@ async function start(): Promise<void> {
   // 4. Graceful shutdown
   const shutdown = (signal: string) => {
     console.log(`[server] Received ${signal}. Shutting down gracefully...`);
-    httpServer.close(() => {
+    httpServer.close(async () => {
+      await disconnectRedis();
       console.log('[server] HTTP server closed.');
       process.exit(0);
     });

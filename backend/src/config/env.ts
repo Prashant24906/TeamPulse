@@ -30,4 +30,7 @@ export const env = {
 
   // CORS
   CORS_ORIGIN: optional('CORS_ORIGIN', 'http://localhost:3000'),
+
+  // Redis (Phase 7)
+  REDIS_URL: optional('REDIS_URL', 'redis://localhost:6379'),
 } as const;

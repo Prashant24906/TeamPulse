@@ -5,6 +5,7 @@ import type { TeamRole } from '../repositories/team.repository';
 import type { CreateProjectInput, UpdateProjectInput } from '../validators/project.validator';
 import { emitToTeam } from '../websocket/emit';
 import { WS_EVENTS } from '../websocket/events';
+import { cacheGet, cacheSet, cacheInvalidate, CacheKeys } from '../utils/cache';
 
 // ---------------------------------------------------------------------------
 // Helper — resolve a project's team and the caller's role in that team.
@@ -65,8 +66,29 @@ export async function getProjectsByTeam(userId: string, teamId: string) {
 // ---------------------------------------------------------------------------
 
 export async function getProject(userId: string, projectId: string) {
-  const { project } = await resolveProjectAndRole(projectId, userId);
-  return project;
+  // Authorization: resolve the team and verify membership
+  const role = await (async () => {
+    // Check cache first to avoid a DB hit just for the team_id lookup
+    const cacheKey = CacheKeys.project(projectId);
+    const cached = await cacheGet<projectRepo.Project>(cacheKey);
+    if (cached) {
+      const r = await teamRepo.findMemberRole(cached.team_id, userId);
+      if (!r) throw new AppError(403, 'You are not a member of the team that owns this project');
+      return { project: cached, role: r };
+    }
+
+    // Cache miss — fetch from DB
+    const project = await projectRepo.findProjectById(projectId);
+    if (!project) throw new AppError(404, 'Project not found');
+
+    const r = await teamRepo.findMemberRole(project.team_id, userId);
+    if (!r) throw new AppError(403, 'You are not a member of the team that owns this project');
+
+    await cacheSet(cacheKey, project);
+    return { project, role: r };
+  })();
+
+  return role.project;
 }
 
 // ---------------------------------------------------------------------------
@@ -85,6 +107,9 @@ export async function updateProject(
   }
 
   const updated = await projectRepo.updateProject(project.id, input);
+
+  // Invalidate cache
+  await cacheInvalidate(CacheKeys.project(project.id));
 
   emitToTeam(project.team_id, WS_EVENTS.PROJECT_UPDATED, {
     teamId:    project.team_id,
@@ -108,6 +133,9 @@ export async function deleteProject(userId: string, projectId: string) {
 
   const teamId = project.team_id;
   await projectRepo.deleteProject(project.id);
+
+  // Invalidate cache
+  await cacheInvalidate(CacheKeys.project(project.id));
 
   emitToTeam(teamId, WS_EVENTS.PROJECT_DELETED, {
     teamId,
