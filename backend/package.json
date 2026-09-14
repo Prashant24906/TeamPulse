@@ -4,15 +4,17 @@
   "description": "TeamFlow backend — Node.js + Express + TypeScript",
   "main": "dist/server.js",
   "scripts": {
-    "dev": "tsx watch src/server.ts",
-    "build": "tsc",
-    "start": "node dist/server.js"
+    "dev":    "tsx watch src/server.ts",
+    "worker": "tsx watch src/jobs/workers/notification.worker.ts",
+    "build":  "tsc",
+    "start":  "node dist/server.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
     "bcrypt": "^6.0.0",
+    "bullmq": "^6.3.4",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",

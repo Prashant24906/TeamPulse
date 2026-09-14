@@ -2,6 +2,7 @@ import { createServer } from 'http';
 import { env } from './config/env';
 import { connectDB } from './config/database';
 import { connectRedis, disconnectRedis } from './config/redis';
+import { closeNotificationQueue } from './jobs/queues/notification.queue';
 import app from './app';
 import { initSocket } from './websocket/socket';
 
@@ -22,7 +23,7 @@ async function start(): Promise<void> {
   // 2. Connect to Redis (non-fatal if unavailable)
   await connectRedis();
 
-  // 2. Create HTTP server and attach Socket.IO to it
+  // 3. Create HTTP server and attach Socket.IO to it
   const httpServer = createServer(app);
   initSocket(httpServer);
 
@@ -38,6 +39,7 @@ async function start(): Promise<void> {
   const shutdown = (signal: string) => {
     console.log(`[server] Received ${signal}. Shutting down gracefully...`);
     httpServer.close(async () => {
+      await closeNotificationQueue();
       await disconnectRedis();
       console.log('[server] HTTP server closed.');
       process.exit(0);

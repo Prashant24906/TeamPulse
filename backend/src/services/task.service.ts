@@ -6,6 +6,8 @@ import type { TeamRole } from '../repositories/team.repository';
 import type { CreateTaskInput, UpdateTaskInput } from '../validators/task.validator';
 import { emitToTeam } from '../websocket/emit';
 import { WS_EVENTS } from '../websocket/events';
+import { scheduleTaskDeadlineJob, removeTaskDeadlineJob } from '../jobs/queues/notification.queue';
+import { isRedisReady } from '../config/redis';
 
 // ---------------------------------------------------------------------------
 // Helper — the full authorization chain described in the docs:
@@ -73,6 +75,28 @@ export async function createTask(
     priority:  task.priority,
   });
 
+  // Schedule a deadline notification job if due_date is set
+  if (task.due_date && isRedisReady()) {
+    const dueMs   = new Date(task.due_date).getTime();
+    const nowMs   = Date.now();
+    const delayMs = Math.max(0, dueMs - nowMs);
+
+    await scheduleTaskDeadlineJob(
+      `deadline:${task.id}`,
+      {
+        taskId:     task.id,
+        taskName:   task.name,
+        projectId:  task.project_id,
+        teamId:     project.team_id,
+        assignedTo: task.assigned_to,
+        createdBy:  task.created_by,
+        dueDate:    task.due_date.toISOString(),
+        type:       'TASK_DUE_SOON',
+      },
+      delayMs
+    );
+  }
+
   return task;
 }
 
@@ -139,6 +163,34 @@ export async function updateTask(
     });
   }
 
+  // Reschedule or remove deadline job when due_date changes
+  if (isRedisReady() && input.due_date !== undefined) {
+    if (input.due_date === null) {
+      // due_date cleared — remove any existing job
+      await removeTaskDeadlineJob(`deadline:${updated.id}`);
+    } else {
+      // due_date changed — scheduleTaskDeadlineJob replaces the existing job
+      const dueMs   = new Date(input.due_date).getTime();
+      const nowMs   = Date.now();
+      const delayMs = Math.max(0, dueMs - nowMs);
+
+      await scheduleTaskDeadlineJob(
+        `deadline:${updated.id}`,
+        {
+          taskId:     updated.id,
+          taskName:   updated.name,
+          projectId:  updated.project_id,
+          teamId:     project?.team_id ?? '',
+          assignedTo: updated.assigned_to,
+          createdBy:  updated.created_by,
+          dueDate:    input.due_date,
+          type:       'TASK_DUE_SOON',
+        },
+        delayMs
+      );
+    }
+  }
+
   return updated;
 }
 
@@ -155,6 +207,11 @@ export async function deleteTask(userId: string, taskId: string) {
 
   const project = await projectRepo.findProjectById(task.project_id);
   await taskRepo.deleteTask(task.id);
+
+  // Remove deadline job — task no longer exists
+  if (isRedisReady()) {
+    await removeTaskDeadlineJob(`deadline:${task.id}`);
+  }
 
   if (project) {
     emitToTeam(project.team_id, WS_EVENTS.TASK_DELETED, {
