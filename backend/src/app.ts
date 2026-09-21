@@ -1,6 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 import { env } from './config/env';
 import { sql } from './config/database';
 import { notFoundHandler, errorHandler } from './middleware/error.middleware';
@@ -22,18 +23,20 @@ app.use(helmet());
 // ---------------------------------------------------------------------------
 app.use(
   cors({
-    origin: env.CORS_ORIGIN,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: true,
+    origin:           env.CORS_ORIGIN,
+    methods:          ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders:   ['Content-Type', 'Authorization'],
+    exposedHeaders:   ['Set-Cookie'],
+    credentials:      true,              // required for cookies to be sent cross-origin
   })
 );
 
 // ---------------------------------------------------------------------------
-// Body parsing
+// Body parsing + cookie parsing
 // ---------------------------------------------------------------------------
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
+app.use(cookieParser());   // populates req.cookies — required for HttpOnly token
 
 // ---------------------------------------------------------------------------
 // Health check

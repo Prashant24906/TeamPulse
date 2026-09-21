@@ -8,6 +8,7 @@ const router = Router();
 // Public routes — strict rate limit (10 req/min per IP)
 router.post('/register', authRateLimit, authController.register);
 router.post('/login',    authRateLimit, authController.login);
+router.post('/logout',   authController.logout);
 
 // Protected routes
 router.get('/me', authenticate, authController.me);

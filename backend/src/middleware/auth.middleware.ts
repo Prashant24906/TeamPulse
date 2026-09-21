@@ -24,7 +24,32 @@ interface JwtPayload {
 }
 
 // ---------------------------------------------------------------------------
-// authenticate — verifies the Bearer token and attaches req.user
+// resolveToken — extract JWT from cookie first, Bearer header as fallback
+//
+// Priority:
+//   1. HttpOnly cookie 'token'           (browser clients)
+//   2. Authorization: Bearer <token>     (Postman, curl, mobile)
+//
+// This allows the browser frontend to use HttpOnly cookies while keeping
+// backwards compatibility with API clients that send Bearer tokens.
+// ---------------------------------------------------------------------------
+
+function resolveToken(req: Request): string | null {
+  // 1. Cookie (set by login/register — HttpOnly, invisible to JS)
+  const cookieToken = req.cookies?.token as string | undefined;
+  if (cookieToken) return cookieToken;
+
+  // 2. Authorization header fallback
+  const authHeader = req.headers.authorization;
+  if (authHeader?.startsWith('Bearer ')) {
+    return authHeader.slice(7);
+  }
+
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// authenticate — verifies the token and attaches req.user
 // ---------------------------------------------------------------------------
 
 export function authenticate(
@@ -32,13 +57,11 @@ export function authenticate(
   _res: Response,
   next: NextFunction
 ): void {
-  const authHeader = req.headers.authorization;
+  const token = resolveToken(req);
 
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  if (!token) {
     return next(new AppError(401, 'Authentication required'));
   }
-
-  const token = authHeader.slice(7); // strip "Bearer "
 
   if (!env.JWT_SECRET) {
     return next(new AppError(500, 'Server misconfiguration: JWT_SECRET missing'));

@@ -54,11 +54,23 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
 
   // -------------------------------------------------------------------------
   // Authentication middleware — runs before the socket is established.
-  // The client must pass { auth: { token: '<JWT>' } } in the handshake.
+  //
+  // Token resolution priority:
+  //   1. HttpOnly cookie 'token' from the handshake headers (browser clients)
+  //   2. socket.handshake.auth.token (non-browser / Postman / mobile)
   // -------------------------------------------------------------------------
 
   io.use((socket, next) => {
-    const token = socket.handshake.auth?.token as string | undefined;
+    // 1. Try cookie from the HTTP upgrade request headers
+    const rawCookie = socket.handshake.headers?.cookie ?? '';
+    const cookieToken = rawCookie
+      .split(';')
+      .map((c) => c.trim())
+      .find((c) => c.startsWith('token='))
+      ?.slice('token='.length);
+
+    // 2. Fall back to explicit auth.token
+    const token = cookieToken ?? (socket.handshake.auth?.token as string | undefined);
 
     if (!token) {
       return next(new Error('Authentication required'));
