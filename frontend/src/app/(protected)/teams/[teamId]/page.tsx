@@ -1,17 +1,20 @@
 'use client';
 
-import { useState } from 'react';
-import { use } from 'react';
+import { useState, use } from 'react';
 import Link from 'next/link';
 import { useTeam, useTeamMembers } from '@/hooks/useTeams';
 import { useProjects, useDeleteProject, useCreateProject } from '@/hooks/useProjects';
-import { useAuth } from '@/hooks/useAuth';
+import { useJoinRequests, useUpdateJoinRequest } from '@/hooks/useTeamDiscovery';
 import {
   FolderOpen, Users, Plus, Trash2, ChevronRight,
-  Loader2, AlertCircle, X, ArrowLeft
+  Loader2, AlertCircle, X, ArrowLeft, UserCheck, Inbox,
 } from 'lucide-react';
 import type { TeamRole } from '@/types/team';
 import { z } from 'zod';
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
 
 const createProjectSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -22,6 +25,10 @@ const ROLE_COLORS: Record<TeamRole, string> = {
   ADMIN:  'text-violet-400 bg-violet-400/10 border-violet-400/20',
   MEMBER: 'text-gray-400 bg-gray-400/10 border-gray-700',
 };
+
+// ---------------------------------------------------------------------------
+// CreateProjectModal
+// ---------------------------------------------------------------------------
 
 function CreateProjectModal({ teamId, onClose }: { teamId: string; onClose: () => void }) {
   const createProject = useCreateProject(teamId);
@@ -79,18 +86,132 @@ function CreateProjectModal({ teamId, onClose }: { teamId: string; onClose: () =
   );
 }
 
+// ---------------------------------------------------------------------------
+// JoinRequestsPanel — OWNER/ADMIN only tab content
+// ---------------------------------------------------------------------------
+
+function JoinRequestsPanel({ teamId }: { teamId: string }) {
+  const { data: requests, isLoading, isError, refetch } = useJoinRequests(teamId);
+  const updateRequest = useUpdateJoinRequest(teamId);
+  const [actionError, setActionError] = useState('');
+
+  const handleAction = async (requestId: string, status: 'APPROVED' | 'REJECTED') => {
+    setActionError('');
+    try {
+      await updateRequest.mutateAsync({ requestId, status });
+    } catch {
+      setActionError(`Failed to ${status.toLowerCase()} request. Try again.`);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center gap-2 py-12 text-gray-500">
+        <Loader2 className="animate-spin" size={20} /><span>Loading requests…</span>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="flex flex-col items-center gap-3 py-12 text-gray-500">
+        <AlertCircle size={24} className="text-red-400" />
+        <p className="text-sm">Unable to load join requests.</p>
+        <button onClick={() => refetch()} className="text-sm text-violet-400 hover:underline">Retry</button>
+      </div>
+    );
+  }
+
+  if (!requests || requests.length === 0) {
+    return (
+      <div className="flex flex-col items-center gap-3 py-16 text-gray-500">
+        <Inbox size={36} className="text-gray-700" />
+        <p className="text-sm">No pending join requests.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {actionError && (
+        <div className="rounded-lg bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-400">
+          {actionError}
+        </div>
+      )}
+      {requests.map((req) => (
+        <div
+          key={req.id}
+          id={`join-request-${req.id}`}
+          className="bg-gray-900 border border-gray-800 rounded-xl px-5 py-4 flex items-center gap-4"
+        >
+          {/* Avatar */}
+          <div className="h-10 w-10 rounded-full bg-violet-500/10 flex items-center justify-center text-violet-400 font-semibold text-sm flex-shrink-0">
+            {req.name.charAt(0).toUpperCase()}
+          </div>
+
+          {/* Info */}
+          <div className="flex-1 min-w-0">
+            <p className="text-white text-sm font-medium truncate">{req.name}</p>
+            <p className="text-gray-500 text-xs truncate">{req.email}</p>
+            <p className="text-gray-600 text-xs mt-0.5">
+              Requested {new Date(req.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+            </p>
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+              id={`approve-request-${req.id}`}
+              onClick={() => handleAction(req.id, 'APPROVED')}
+              disabled={updateRequest.isPending}
+              className="flex items-center gap-1.5 text-xs font-medium text-emerald-400 bg-emerald-400/10 hover:bg-emerald-400/20 px-3 py-1.5 rounded-lg border border-emerald-400/20 transition disabled:opacity-50"
+            >
+              {updateRequest.isPending ? <Loader2 size={12} className="animate-spin" /> : <UserCheck size={13} />}
+              Approve
+            </button>
+            <button
+              id={`reject-request-${req.id}`}
+              onClick={() => handleAction(req.id, 'REJECTED')}
+              disabled={updateRequest.isPending}
+              className="flex items-center gap-1.5 text-xs font-medium text-red-400 bg-red-400/10 hover:bg-red-400/20 px-3 py-1.5 rounded-lg border border-red-400/20 transition disabled:opacity-50"
+            >
+              <X size={13} /> Reject
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// TeamPage
+// ---------------------------------------------------------------------------
+
+type Tab = 'projects' | 'members' | 'requests';
+
 export default function TeamPage({ params }: { params: Promise<{ teamId: string }> }) {
   const { teamId } = use(params);
-  const { data: user }    = useAuth();
   const { data: team, isLoading: teamLoading } = useTeam(teamId);
   const { data: members } = useTeamMembers(teamId);
   const { data: projects, isLoading: projLoading, isError: projError, refetch } = useProjects(teamId);
+  const { data: joinRequests } = useJoinRequests(teamId);
   const deleteProject = useDeleteProject(teamId);
-  const [tab, setTab]       = useState<'projects' | 'members'>('projects');
-  const [showCreate, setShowCreate] = useState(false);
 
   const myRole = team?.role ?? 'MEMBER';
   const canManage = myRole === 'OWNER' || myRole === 'ADMIN';
+
+  const [tab, setTab] = useState<Tab>('projects');
+  const [showCreate, setShowCreate] = useState(false);
+
+  // Build tab list — only admins/owners see the Requests tab
+  const tabs: { id: Tab; label: string; badge?: number }[] = [
+    { id: 'projects', label: 'Projects' },
+    { id: 'members',  label: 'Members' },
+    ...(canManage
+      ? [{ id: 'requests' as Tab, label: 'Join Requests', badge: joinRequests?.length ?? 0 }]
+      : []),
+  ];
 
   return (
     <div className="p-8">
@@ -101,7 +222,7 @@ export default function TeamPage({ params }: { params: Promise<{ teamId: string 
 
       {/* Header */}
       {teamLoading ? (
-        <div className="h-8 w-48 bg-gray-800 rounded animate-pulse mb-2" />
+        <div className="h-8 w-48 bg-gray-800 rounded animate-pulse mb-6" />
       ) : (
         <div className="flex items-start justify-between mb-6">
           <div>
@@ -129,18 +250,21 @@ export default function TeamPage({ params }: { params: Promise<{ teamId: string 
 
       {/* Tabs */}
       <div className="flex gap-1 mb-6 bg-gray-900 rounded-lg p-1 w-fit border border-gray-800">
-        {(['projects', 'members'] as const).map((t) => (
+        {tabs.map((t) => (
           <button
-            key={t}
-            id={`tab-${t}`}
-            onClick={() => setTab(t)}
-            className={`px-4 py-1.5 rounded-md text-sm font-medium transition capitalize ${
-              tab === t
-                ? 'bg-gray-800 text-white'
-                : 'text-gray-500 hover:text-gray-300'
+            key={t.id}
+            id={`tab-${t.id}`}
+            onClick={() => setTab(t.id)}
+            className={`flex items-center gap-1.5 px-4 py-1.5 rounded-md text-sm font-medium transition ${
+              tab === t.id ? 'bg-gray-800 text-white' : 'text-gray-500 hover:text-gray-300'
             }`}
           >
-            {t}
+            {t.label}
+            {t.badge !== undefined && t.badge > 0 && (
+              <span className="bg-violet-500 text-white text-xs font-bold rounded-full w-4 h-4 flex items-center justify-center leading-none">
+                {t.badge > 9 ? '9+' : t.badge}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -227,6 +351,11 @@ export default function TeamPage({ params }: { params: Promise<{ teamId: string 
             </div>
           )}
         </div>
+      )}
+
+      {/* Join Requests tab — OWNER/ADMIN only */}
+      {tab === 'requests' && canManage && (
+        <JoinRequestsPanel teamId={teamId} />
       )}
 
       {showCreate && <CreateProjectModal teamId={teamId} onClose={() => setShowCreate(false)} />}

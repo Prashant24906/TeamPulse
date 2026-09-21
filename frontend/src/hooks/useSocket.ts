@@ -52,9 +52,14 @@ export function useSocket() {
     });
     socket.on('team.member_added', (payload: { teamId: string }) => {
       qc.invalidateQueries({ queryKey: ['team-members', payload.teamId] });
+      qc.invalidateQueries({ queryKey: ['join-requests', payload.teamId] });
     });
     socket.on('team.member_removed', (payload: { teamId: string }) => {
       qc.invalidateQueries({ queryKey: ['team-members', payload.teamId] });
+    });
+    // New join request submitted — notify admin UI
+    socket.on('team.join_request_created', (payload: { teamId: string }) => {
+      qc.invalidateQueries({ queryKey: ['join-requests', payload.teamId] });
     });
 
     return () => {
@@ -67,6 +72,7 @@ export function useSocket() {
       socket.off('team.updated');
       socket.off('team.member_added');
       socket.off('team.member_removed');
+      socket.off('team.join_request_created');
       disconnectSocket();
     };
   }, [qc]);
