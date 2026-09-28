@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { connectSocket, disconnectSocket, getSocket } from '@/lib/socket';
+import type { TeamMessage } from '@/types/message';
 
 // ---------------------------------------------------------------------------
 // useSocket — manages Socket.IO lifecycle for a protected page
@@ -62,6 +63,30 @@ export function useSocket() {
       qc.invalidateQueries({ queryKey: ['join-requests', payload.teamId] });
     });
 
+    // Chat — append new message directly to the cache (no extra HTTP request).
+    // Deduplication prevents doubles when the sender's own useSendMessage
+    // mutation has already appended the same message.
+    socket.on('message.created', (payload: {
+      id: string; teamId: string; senderId: string;
+      senderName: string; content: string; createdAt: string;
+    }) => {
+      const existing = qc.getQueryData<TeamMessage[]>(['messages', payload.teamId]);
+      // Only update if the cache for this team is already loaded
+      if (existing === undefined) return;
+      if (existing.some((m) => m.id === payload.id)) return;
+
+      const newMsg: TeamMessage = {
+        id:          payload.id,
+        team_id:     payload.teamId,
+        sender_id:   payload.senderId,
+        sender_name: payload.senderName,
+        content:     payload.content,
+        created_at:  payload.createdAt,
+        updated_at:  payload.createdAt,
+      };
+      qc.setQueryData<TeamMessage[]>(['messages', payload.teamId], [...existing, newMsg]);
+    });
+
     return () => {
       socket.off('task.created');
       socket.off('task.updated');
@@ -73,6 +98,7 @@ export function useSocket() {
       socket.off('team.member_added');
       socket.off('team.member_removed');
       socket.off('team.join_request_created');
+      socket.off('message.created');
       disconnectSocket();
     };
   }, [qc]);

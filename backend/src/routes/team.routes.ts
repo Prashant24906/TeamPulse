@@ -4,6 +4,7 @@ import { rateLimit } from '../middleware/rateLimit.middleware';
 import * as teamController     from '../controllers/team.controller';
 import * as projectController  from '../controllers/project.controller';
 import * as joinController     from '../controllers/teamJoinRequest.controller';
+import * as messageController  from '../controllers/teamMessage.controller';
 
 const router = Router();
 
@@ -55,5 +56,12 @@ router.patch('/:teamId/join-requests/:requestId',          joinController.update
 
 router.post('/:teamId/projects', projectController.createProject);
 router.get('/:teamId/projects',  projectController.getProjectsByTeam);
+
+// ---------------------------------------------------------------------------
+// Chat messages — any team member can read and send
+// ---------------------------------------------------------------------------
+
+router.get('/:teamId/messages',  messageController.getMessages);
+router.post('/:teamId/messages', messageController.sendMessage);
 
 export default router;

@@ -23,7 +23,7 @@ const createTeamSchema = z.object({
 
 const ROLE_COLORS: Record<TeamRole, string> = {
   OWNER:  'text-amber-400 bg-amber-400/10',
-  ADMIN:  'text-violet-400 bg-violet-400/10',
+  ADMIN:  'text-sky-400 bg-sky-400/10',
   MEMBER: 'text-gray-400 bg-gray-400/10',
 };
 
@@ -76,7 +76,7 @@ function CreateTeamModal({ onClose }: { onClose: () => void }) {
               id="team-name"
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
-              className="w-full rounded-lg bg-gray-800 border border-gray-700 px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition"
+              className="w-full rounded-lg bg-gray-800 border border-gray-700 px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition"
               placeholder="e.g. Backend Team"
             />
             {errors.name && <p className="mt-1 text-xs text-red-400">{errors.name}</p>}
@@ -90,7 +90,7 @@ function CreateTeamModal({ onClose }: { onClose: () => void }) {
               max={100}
               value={form.max_size}
               onChange={(e) => setForm({ ...form, max_size: e.target.value })}
-              className="w-full rounded-lg bg-gray-800 border border-gray-700 px-4 py-2.5 text-white focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition"
+              className="w-full rounded-lg bg-gray-800 border border-gray-700 px-4 py-2.5 text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition"
             />
             {errors.max_size && <p className="mt-1 text-xs text-red-400">{errors.max_size}</p>}
           </div>
@@ -102,7 +102,7 @@ function CreateTeamModal({ onClose }: { onClose: () => void }) {
               id="create-team-submit"
               type="submit"
               disabled={createTeam.isPending}
-              className="flex-1 rounded-lg bg-violet-600 hover:bg-violet-500 disabled:opacity-50 px-4 py-2.5 text-white font-medium transition text-sm"
+              className="flex-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 px-4 py-2.5 text-white font-medium transition text-sm"
             >
               {createTeam.isPending ? 'Creating…' : 'Create Team'}
             </button>
@@ -130,7 +130,7 @@ function JoinButton({ team }: { team: TeamSearchResult }) {
       await createJoinRequest.mutateAsync(team.id);
       setLocalPending(true);
     } catch {
-      // Error handled silently — the search will re-fetch on next query
+      // silent
     }
   }, [createJoinRequest, team.id]);
 
@@ -158,7 +158,7 @@ function JoinButton({ team }: { team: TeamSearchResult }) {
       id={`join-team-${team.id}`}
       onClick={handleJoin}
       disabled={isSubmitting}
-      className="flex items-center gap-1.5 text-xs font-medium text-violet-400 bg-violet-400/10 hover:bg-violet-400/20 px-3 py-1.5 rounded-lg border border-violet-400/20 transition disabled:opacity-50"
+      className="flex items-center gap-1.5 text-xs font-medium text-emerald-400 bg-emerald-400/10 hover:bg-emerald-400/20 px-3 py-1.5 rounded-lg border border-emerald-400/20 transition disabled:opacity-50"
     >
       {isSubmitting ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
       Join
@@ -187,7 +187,7 @@ function TeamSearchModal({ onClose }: { onClose: () => void }) {
 
         {/* Search input */}
         <div className="px-6 py-4 border-b border-gray-800">
-          <div className="flex items-center gap-3 bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 focus-within:border-violet-500 focus-within:ring-1 focus-within:ring-violet-500 transition">
+          <div className="flex items-center gap-3 bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500 transition">
             <Search size={16} className="text-gray-500 flex-shrink-0" />
             <input
               id="team-search-input"
@@ -211,7 +211,6 @@ function TeamSearchModal({ onClose }: { onClose: () => void }) {
 
         {/* Results */}
         <div className="max-h-[400px] overflow-y-auto">
-          {/* Idle state */}
           {query.trim().length < 2 && (
             <div className="flex flex-col items-center gap-2 py-12 text-gray-600">
               <Search size={28} className="text-gray-700" />
@@ -219,7 +218,6 @@ function TeamSearchModal({ onClose }: { onClose: () => void }) {
             </div>
           )}
 
-          {/* Loading */}
           {query.trim().length >= 2 && isLoading && (
             <div className="flex items-center justify-center gap-2 py-12 text-gray-500">
               <Loader2 className="animate-spin" size={18} />
@@ -227,7 +225,6 @@ function TeamSearchModal({ onClose }: { onClose: () => void }) {
             </div>
           )}
 
-          {/* Error */}
           {query.trim().length >= 2 && isError && (
             <div className="flex flex-col items-center gap-2 py-12 text-gray-500">
               <AlertCircle size={22} className="text-red-400" />
@@ -235,7 +232,6 @@ function TeamSearchModal({ onClose }: { onClose: () => void }) {
             </div>
           )}
 
-          {/* Empty */}
           {query.trim().length >= 2 && !isLoading && !isError && results?.length === 0 && (
             <div className="flex flex-col items-center gap-2 py-12 text-gray-600">
               <Users size={28} className="text-gray-700" />
@@ -243,7 +239,6 @@ function TeamSearchModal({ onClose }: { onClose: () => void }) {
             </div>
           )}
 
-          {/* Results list */}
           {!isLoading && results && results.length > 0 && (
             <ul className="divide-y divide-gray-800/60">
               {results.map((team) => (
@@ -252,8 +247,8 @@ function TeamSearchModal({ onClose }: { onClose: () => void }) {
                   id={`search-result-${team.id}`}
                   className="flex items-center gap-4 px-6 py-4 hover:bg-gray-800/40 transition"
                 >
-                  <div className="h-9 w-9 rounded-lg bg-violet-500/10 flex items-center justify-center flex-shrink-0">
-                    <Users size={16} className="text-violet-400" />
+                  <div className="h-9 w-9 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+                    <Users size={16} className="text-emerald-400" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-white text-sm font-medium truncate">{team.name}</p>
@@ -301,7 +296,7 @@ export default function TeamsPage() {
           <button
             id="open-create-team"
             onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition"
+            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition"
           >
             <Plus size={16} /> New Team
           </button>
@@ -319,7 +314,7 @@ export default function TeamsPage() {
         <div className="flex flex-col items-center gap-3 text-gray-500 py-12">
           <AlertCircle size={24} className="text-red-400" />
           <p className="text-sm">Unable to load teams.</p>
-          <button onClick={() => refetch()} className="text-sm text-violet-400 hover:underline">Retry</button>
+          <button onClick={() => refetch()} className="text-sm text-emerald-400 hover:underline">Retry</button>
         </div>
       )}
 
@@ -334,8 +329,8 @@ export default function TeamsPage() {
         <div className="space-y-3">
           {teams.map((team) => (
             <div key={team.id} className="bg-gray-900 border border-gray-800 rounded-xl flex items-center px-5 py-4 gap-4 hover:border-gray-700 transition">
-              <div className="h-10 w-10 rounded-lg bg-violet-500/10 flex items-center justify-center flex-shrink-0">
-                <Users size={18} className="text-violet-400" />
+              <div className="h-10 w-10 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+                <Users size={18} className="text-emerald-400" />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
@@ -359,7 +354,7 @@ export default function TeamsPage() {
                 <Link
                   href={`/teams/${team.id}`}
                   id={`view-team-${team.id}`}
-                  className="text-gray-500 hover:text-violet-400 transition p-1.5 rounded"
+                  className="text-gray-500 hover:text-emerald-400 transition p-1.5 rounded"
                 >
                   <ChevronRight size={18} />
                 </Link>

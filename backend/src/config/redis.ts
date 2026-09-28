@@ -9,7 +9,7 @@ import { env } from './env';
 //   - Log connection events
 //   - Degrade gracefully on connection failure (non-fatal for the app)
 //
-// NOT responsible for: cache logic, rate limiting, pub/sub, job queues
+// NOT responsible for: cache logic, pub/sub, job queues
 // ---------------------------------------------------------------------------
 
 let redisClient: Redis | null = null;

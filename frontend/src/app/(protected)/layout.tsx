@@ -20,7 +20,7 @@ function Sidebar() {
     <aside className="w-60 flex-shrink-0 bg-gray-900 border-r border-gray-800 flex flex-col">
       {/* Logo */}
       <div className="px-6 py-5 border-b border-gray-800">
-        <span className="text-xl font-bold bg-gradient-to-r from-violet-400 to-cyan-400 bg-clip-text text-transparent">
+        <span className="text-xl font-bold bg-gradient-to-r from-emerald-400 to-teal-300 bg-clip-text text-transparent">
           TeamPulse
         </span>
       </div>
@@ -76,7 +76,7 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="animate-spin text-violet-400" size={32} />
+        <Loader2 className="animate-spin text-emerald-400" size={32} />
       </div>
     );
   }
@@ -92,3 +92,4 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
     </div>
   );
 }
+

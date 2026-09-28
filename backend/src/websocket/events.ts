@@ -21,6 +21,9 @@ export const WS_EVENTS = {
   TASK_CREATED: 'task.created',
   TASK_UPDATED: 'task.updated',
   TASK_DELETED: 'task.deleted',
+
+  // Chat events
+  MESSAGE_CREATED: 'message.created',
 } as const;
 
 export type WsEvent = typeof WS_EVENTS[keyof typeof WS_EVENTS];
@@ -35,4 +38,13 @@ export interface JoinRequestPayload      { teamId: string; requestId: string; us
 
 export interface ProjectPayload          { teamId: string; projectId: string; [key: string]: unknown }
 export interface TaskPayload             { teamId: string; projectId: string; taskId: string; [key: string]: unknown }
+
+export interface MessageCreatedPayload {
+  id: string;
+  teamId: string;
+  senderId: string;
+  senderName: string;
+  content: string;
+  createdAt: Date;
+}
 

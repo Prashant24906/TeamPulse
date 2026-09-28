@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useTeam, useTeamMembers } from '@/hooks/useTeams';
 import { useProjects, useDeleteProject, useCreateProject } from '@/hooks/useProjects';
 import { useJoinRequests, useUpdateJoinRequest } from '@/hooks/useTeamDiscovery';
+import { ChatPanel } from '@/components/chat/ChatPanel';
 import {
   FolderOpen, Users, Plus, Trash2, ChevronRight,
   Loader2, AlertCircle, X, ArrowLeft, UserCheck, Inbox,
@@ -22,7 +23,7 @@ const createProjectSchema = z.object({
 
 const ROLE_COLORS: Record<TeamRole, string> = {
   OWNER:  'text-amber-400 bg-amber-400/10 border-amber-400/20',
-  ADMIN:  'text-violet-400 bg-violet-400/10 border-violet-400/20',
+  ADMIN:  'text-sky-400 bg-sky-400/10 border-sky-400/20',
   MEMBER: 'text-gray-400 bg-gray-400/10 border-gray-700',
 };
 
@@ -65,7 +66,7 @@ function CreateProjectModal({ teamId, onClose }: { teamId: string; onClose: () =
               id="project-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full rounded-lg bg-gray-800 border border-gray-700 px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition"
+              className="w-full rounded-lg bg-gray-800 border border-gray-700 px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition"
               placeholder="e.g. Backend API"
             />
           </div>
@@ -75,7 +76,7 @@ function CreateProjectModal({ teamId, onClose }: { teamId: string; onClose: () =
               id="create-project-submit"
               type="submit"
               disabled={createProject.isPending}
-              className="flex-1 rounded-lg bg-violet-600 hover:bg-violet-500 disabled:opacity-50 px-4 py-2.5 text-white font-medium transition text-sm"
+              className="flex-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 px-4 py-2.5 text-white font-medium transition text-sm"
             >
               {createProject.isPending ? 'Creating…' : 'Create'}
             </button>
@@ -87,7 +88,7 @@ function CreateProjectModal({ teamId, onClose }: { teamId: string; onClose: () =
 }
 
 // ---------------------------------------------------------------------------
-// JoinRequestsPanel — OWNER/ADMIN only tab content
+// JoinRequestsPanel — OWNER/ADMIN only
 // ---------------------------------------------------------------------------
 
 function JoinRequestsPanel({ teamId }: { teamId: string }) {
@@ -117,7 +118,7 @@ function JoinRequestsPanel({ teamId }: { teamId: string }) {
       <div className="flex flex-col items-center gap-3 py-12 text-gray-500">
         <AlertCircle size={24} className="text-red-400" />
         <p className="text-sm">Unable to load join requests.</p>
-        <button onClick={() => refetch()} className="text-sm text-violet-400 hover:underline">Retry</button>
+        <button onClick={() => refetch()} className="text-sm text-emerald-400 hover:underline">Retry</button>
       </div>
     );
   }
@@ -144,12 +145,9 @@ function JoinRequestsPanel({ teamId }: { teamId: string }) {
           id={`join-request-${req.id}`}
           className="bg-gray-900 border border-gray-800 rounded-xl px-5 py-4 flex items-center gap-4"
         >
-          {/* Avatar */}
-          <div className="h-10 w-10 rounded-full bg-violet-500/10 flex items-center justify-center text-violet-400 font-semibold text-sm flex-shrink-0">
+          <div className="h-10 w-10 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400 font-semibold text-sm flex-shrink-0">
             {req.name.charAt(0).toUpperCase()}
           </div>
-
-          {/* Info */}
           <div className="flex-1 min-w-0">
             <p className="text-white text-sm font-medium truncate">{req.name}</p>
             <p className="text-gray-500 text-xs truncate">{req.email}</p>
@@ -157,8 +155,6 @@ function JoinRequestsPanel({ teamId }: { teamId: string }) {
               Requested {new Date(req.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
             </p>
           </div>
-
-          {/* Actions */}
           <div className="flex items-center gap-2 flex-shrink-0">
             <button
               id={`approve-request-${req.id}`}
@@ -188,7 +184,7 @@ function JoinRequestsPanel({ teamId }: { teamId: string }) {
 // TeamPage
 // ---------------------------------------------------------------------------
 
-type Tab = 'projects' | 'members' | 'requests';
+type Tab = 'projects' | 'members' | 'requests' | 'chat';
 
 export default function TeamPage({ params }: { params: Promise<{ teamId: string }> }) {
   const { teamId } = use(params);
@@ -204,13 +200,13 @@ export default function TeamPage({ params }: { params: Promise<{ teamId: string 
   const [tab, setTab] = useState<Tab>('projects');
   const [showCreate, setShowCreate] = useState(false);
 
-  // Build tab list — only admins/owners see the Requests tab
   const tabs: { id: Tab; label: string; badge?: number }[] = [
     { id: 'projects', label: 'Projects' },
     { id: 'members',  label: 'Members' },
     ...(canManage
       ? [{ id: 'requests' as Tab, label: 'Join Requests', badge: joinRequests?.length ?? 0 }]
       : []),
+    { id: 'chat', label: 'Chat' },
   ];
 
   return (
@@ -240,7 +236,7 @@ export default function TeamPage({ params }: { params: Promise<{ teamId: string 
             <button
               id="open-create-project"
               onClick={() => setShowCreate(true)}
-              className="flex items-center gap-2 bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition"
+              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition"
             >
               <Plus size={16} /> New Project
             </button>
@@ -261,7 +257,7 @@ export default function TeamPage({ params }: { params: Promise<{ teamId: string 
           >
             {t.label}
             {t.badge !== undefined && t.badge > 0 && (
-              <span className="bg-violet-500 text-white text-xs font-bold rounded-full w-4 h-4 flex items-center justify-center leading-none">
+              <span className="bg-emerald-500 text-white text-xs font-bold rounded-full w-4 h-4 flex items-center justify-center leading-none">
                 {t.badge > 9 ? '9+' : t.badge}
               </span>
             )}
@@ -281,7 +277,7 @@ export default function TeamPage({ params }: { params: Promise<{ teamId: string 
             <div className="flex flex-col items-center gap-3 py-12 text-gray-500">
               <AlertCircle size={24} className="text-red-400" />
               <p className="text-sm">Unable to load projects.</p>
-              <button onClick={() => refetch()} className="text-sm text-violet-400 hover:underline">Retry</button>
+              <button onClick={() => refetch()} className="text-sm text-emerald-400 hover:underline">Retry</button>
             </div>
           )}
           {!projLoading && !projError && projects?.length === 0 && (
@@ -293,10 +289,10 @@ export default function TeamPage({ params }: { params: Promise<{ teamId: string 
           {!projLoading && projects && projects.length > 0 && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {projects.map((project) => (
-                <div key={project.id} className="group bg-gray-900 border border-gray-800 rounded-xl p-5 hover:border-violet-500/40 transition-all flex flex-col gap-3">
+                <div key={project.id} className="group bg-gray-900 border border-gray-800 rounded-xl p-5 hover:border-emerald-500/40 transition-all flex flex-col gap-3">
                   <div className="flex items-start justify-between">
-                    <div className="h-9 w-9 rounded-lg bg-cyan-500/10 flex items-center justify-center">
-                      <FolderOpen size={16} className="text-cyan-400" />
+                    <div className="h-9 w-9 rounded-lg bg-teal-500/10 flex items-center justify-center">
+                      <FolderOpen size={16} className="text-teal-400" />
                     </div>
                     {canManage && (
                       <button
@@ -315,7 +311,7 @@ export default function TeamPage({ params }: { params: Promise<{ teamId: string 
                   <Link
                     href={`/teams/${teamId}/projects/${project.id}`}
                     id={`view-project-${project.id}`}
-                    className="flex items-center gap-1 text-sm text-gray-500 hover:text-violet-400 transition"
+                    className="flex items-center gap-1 text-sm text-gray-500 hover:text-emerald-400 transition"
                   >
                     Open <ChevronRight size={14} />
                   </Link>
@@ -332,7 +328,7 @@ export default function TeamPage({ params }: { params: Promise<{ teamId: string 
           {!members && <div className="flex justify-center py-12"><Loader2 className="animate-spin text-gray-500" size={20} /></div>}
           {members?.map((m) => (
             <div key={m.user_id} className="bg-gray-900 border border-gray-800 rounded-xl px-5 py-3.5 flex items-center gap-4">
-              <div className="h-9 w-9 rounded-full bg-violet-500/10 flex items-center justify-center text-violet-400 font-semibold text-sm flex-shrink-0">
+              <div className="h-9 w-9 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400 font-semibold text-sm flex-shrink-0">
                 {m.name.charAt(0).toUpperCase()}
               </div>
               <div className="flex-1 min-w-0">
@@ -356,6 +352,11 @@ export default function TeamPage({ params }: { params: Promise<{ teamId: string 
       {/* Join Requests tab — OWNER/ADMIN only */}
       {tab === 'requests' && canManage && (
         <JoinRequestsPanel teamId={teamId} />
+      )}
+
+      {/* Chat tab — all members */}
+      {tab === 'chat' && (
+        <ChatPanel teamId={teamId} />
       )}
 
       {showCreate && <CreateProjectModal teamId={teamId} onClose={() => setShowCreate(false)} />}

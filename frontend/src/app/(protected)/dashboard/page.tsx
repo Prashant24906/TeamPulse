@@ -8,7 +8,7 @@ import type { TeamRole } from '@/types/team';
 
 const ROLE_COLORS: Record<TeamRole, string> = {
   OWNER:  'text-amber-400 bg-amber-400/10',
-  ADMIN:  'text-violet-400 bg-violet-400/10',
+  ADMIN:  'text-sky-400 bg-sky-400/10',
   MEMBER: 'text-gray-400 bg-gray-400/10',
 };
 
@@ -33,7 +33,7 @@ export default function DashboardPage() {
           <Link
             href="/teams"
             id="go-to-teams"
-            className="flex items-center gap-1.5 text-sm text-violet-400 hover:text-violet-300 transition-colors"
+            className="flex items-center gap-1.5 text-sm text-emerald-400 hover:text-emerald-300 transition-colors"
           >
             <Plus size={15} /> New Team
           </Link>
@@ -52,7 +52,7 @@ export default function DashboardPage() {
             <p className="text-sm">Unable to load teams.</p>
             <button
               onClick={() => refetch()}
-              className="text-sm text-violet-400 hover:underline"
+              className="text-sm text-emerald-400 hover:underline"
             >
               Retry
             </button>
@@ -63,7 +63,7 @@ export default function DashboardPage() {
           <div className="flex flex-col items-center gap-3 py-12 text-gray-500">
             <Users size={32} className="text-gray-700" />
             <p className="text-sm">No teams yet.</p>
-            <Link href="/teams" className="text-sm text-violet-400 hover:underline">
+            <Link href="/teams" className="text-sm text-emerald-400 hover:underline">
               Create your first team
             </Link>
           </div>
@@ -76,17 +76,17 @@ export default function DashboardPage() {
                 key={team.id}
                 href={`/teams/${team.id}`}
                 id={`team-card-${team.id}`}
-                className="group bg-gray-900 border border-gray-800 rounded-xl p-5 hover:border-violet-500/50 hover:bg-gray-800/60 transition-all"
+                className="group bg-gray-900 border border-gray-800 rounded-xl p-5 hover:border-emerald-500/50 hover:bg-gray-800/60 transition-all"
               >
                 <div className="flex items-start justify-between mb-3">
-                  <div className="h-10 w-10 rounded-lg bg-violet-500/10 flex items-center justify-center">
-                    <Users size={18} className="text-violet-400" />
+                  <div className="h-10 w-10 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+                    <Users size={18} className="text-emerald-400" />
                   </div>
                   <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${ROLE_COLORS[team.role]}`}>
                     {team.role}
                   </span>
                 </div>
-                <h3 className="text-white font-semibold group-hover:text-violet-300 transition-colors">
+                <h3 className="text-white font-semibold group-hover:text-emerald-300 transition-colors">
                   {team.name}
                 </h3>
                 <p className="text-gray-500 text-xs mt-1">

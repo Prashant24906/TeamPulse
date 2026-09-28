@@ -119,7 +119,7 @@ function TaskModal({
               id="task-name"
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
-              className="w-full rounded-lg bg-gray-800 border border-gray-700 px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition"
+              className="w-full rounded-lg bg-gray-800 border border-gray-700 px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition"
               placeholder="e.g. Implement JWT auth"
             />
             {errors.name && <p className="mt-1 text-xs text-red-400">{errors.name}</p>}
@@ -133,7 +133,7 @@ function TaskModal({
               rows={3}
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
-              className="w-full rounded-lg bg-gray-800 border border-gray-700 px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition resize-none"
+              className="w-full rounded-lg bg-gray-800 border border-gray-700 px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition resize-none"
               placeholder="Optional description…"
             />
           </div>
@@ -146,7 +146,7 @@ function TaskModal({
                 id="task-status"
                 value={form.status}
                 onChange={(e) => setForm({ ...form, status: e.target.value as TaskStatus })}
-                className="w-full rounded-lg bg-gray-800 border border-gray-700 px-3 py-2.5 text-white focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition"
+                className="w-full rounded-lg bg-gray-800 border border-gray-700 px-3 py-2.5 text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition"
               >
                 <option value="TODO">Todo</option>
                 <option value="IN_PROGRESS">In Progress</option>
@@ -159,7 +159,7 @@ function TaskModal({
                 id="task-priority"
                 value={form.priority}
                 onChange={(e) => setForm({ ...form, priority: e.target.value as TaskPriority })}
-                className="w-full rounded-lg bg-gray-800 border border-gray-700 px-3 py-2.5 text-white focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition"
+                className="w-full rounded-lg bg-gray-800 border border-gray-700 px-3 py-2.5 text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition"
               >
                 <option value="LOW">Low</option>
                 <option value="MEDIUM">Medium</option>
@@ -175,7 +175,7 @@ function TaskModal({
               id="task-assignee"
               value={form.assigned_to}
               onChange={(e) => setForm({ ...form, assigned_to: e.target.value })}
-              className="w-full rounded-lg bg-gray-800 border border-gray-700 px-3 py-2.5 text-white focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition"
+              className="w-full rounded-lg bg-gray-800 border border-gray-700 px-3 py-2.5 text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition"
             >
               <option value="">Unassigned</option>
               {members?.map((m) => (
@@ -192,7 +192,7 @@ function TaskModal({
               type="date"
               value={form.due_date}
               onChange={(e) => setForm({ ...form, due_date: e.target.value })}
-              className="w-full rounded-lg bg-gray-800 border border-gray-700 px-4 py-2.5 text-white focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition"
+              className="w-full rounded-lg bg-gray-800 border border-gray-700 px-4 py-2.5 text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition"
             />
           </div>
 
@@ -202,7 +202,7 @@ function TaskModal({
               id="task-submit"
               type="submit"
               disabled={isPending}
-              className="flex-1 rounded-lg bg-violet-600 hover:bg-violet-500 disabled:opacity-50 px-4 py-2.5 text-white font-medium transition text-sm"
+              className="flex-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 px-4 py-2.5 text-white font-medium transition text-sm"
             >
               {isPending ? 'Saving…' : editTask ? 'Save Changes' : 'Create Task'}
             </button>
@@ -239,7 +239,7 @@ function TaskCard({
           <button
             onClick={() => onEdit(task)}
             id={`edit-task-${task.id}`}
-            className="text-gray-600 hover:text-violet-400 transition p-1 rounded"
+            className="text-gray-600 hover:text-emerald-400 transition p-1 rounded"
           >
             <Pencil size={13} />
           </button>
@@ -318,7 +318,7 @@ function KanbanColumn({
           <button
             onClick={() => setShowCreate(true)}
             id={`add-task-${status}`}
-            className="text-gray-600 hover:text-violet-400 transition p-1 rounded"
+            className="text-gray-600 hover:text-emerald-400 transition p-1 rounded"
           >
             <Plus size={15} />
           </button>
@@ -398,7 +398,7 @@ export default function ProjectPage({
         <div className="flex flex-col items-center gap-3 py-12 text-gray-500">
           <AlertCircle size={24} className="text-red-400" />
           <p className="text-sm">Unable to load tasks.</p>
-          <button onClick={() => refetch()} className="text-sm text-violet-400 hover:underline">Retry</button>
+          <button onClick={() => refetch()} className="text-sm text-emerald-400 hover:underline">Retry</button>
         </div>
       )}
 
