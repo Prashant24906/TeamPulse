@@ -17,12 +17,14 @@ function Sidebar() {
   ];
 
   return (
-    <aside className="w-60 flex-shrink-0 bg-gray-900 border-r border-gray-800 flex flex-col">
+    <aside className="w-60 flex-shrink-0 bg-white border-r border-gray-200 flex flex-col">
       {/* Logo */}
-      <div className="px-6 py-5 border-b border-gray-800">
-        <span className="text-xl font-bold bg-gradient-to-r from-emerald-400 to-teal-300 bg-clip-text text-transparent">
-          TeamPulse
-        </span>
+      <div className="px-6 py-5 border-b border-gray-200">
+        <Link href="/">
+          <span className="text-xl font-bold bg-gradient-to-r from-emerald-600 to-teal-500 bg-clip-text text-transparent">
+            TeamPulse
+          </span>
+        </Link>
       </div>
 
       {/* Navigation */}
@@ -31,7 +33,7 @@ function Sidebar() {
           <Link
             key={href}
             href={href}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors text-sm font-medium"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors text-sm font-medium"
           >
             <Icon size={17} />
             {label}
@@ -40,9 +42,9 @@ function Sidebar() {
       </nav>
 
       {/* User + Logout */}
-      <div className="px-3 py-4 border-t border-gray-800 space-y-1">
+      <div className="px-3 py-4 border-t border-gray-200 space-y-1">
         {user && (
-          <div className="px-3 py-2 text-xs text-gray-500 truncate">
+          <div className="px-3 py-2 text-xs text-gray-400 truncate">
             {user.name} · {user.email}
           </div>
         )}
@@ -50,7 +52,7 @@ function Sidebar() {
           id="logout-btn"
           onClick={() => logout.mutate()}
           disabled={logout.isPending}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-colors text-sm font-medium"
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-500 hover:text-red-500 hover:bg-red-50 transition-colors text-sm font-medium"
         >
           <LogOut size={17} />
           Sign out
@@ -64,7 +66,6 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
   const router = useRouter();
   const { data: user, isLoading, isError } = useAuth();
 
-  // Wire up Socket.IO for real-time updates across all protected pages
   useSocket();
 
   useEffect(() => {
@@ -75,8 +76,8 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="animate-spin text-emerald-400" size={32} />
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <Loader2 className="animate-spin text-emerald-500" size={32} />
       </div>
     );
   }
@@ -84,12 +85,11 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
   if (isError || !user) return null;
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen overflow-hidden bg-gray-100">
       <Sidebar />
-      <main className="flex-1 overflow-y-auto bg-gray-950">
+      <main className="flex-1 overflow-y-auto bg-gray-100">
         {children}
       </main>
     </div>
   );
 }
-

@@ -41,29 +41,31 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4">
+    <div className="min-h-screen bg-gray-100 flex items-center justify-center px-4">
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-10">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-emerald-400 to-teal-300 bg-clip-text text-transparent">
-            TeamPulse
-          </h1>
-          <p className="mt-2 text-gray-400 text-sm">Sign in to your workspace</p>
+          <Link href="/">
+            <span className="text-3xl font-extrabold bg-gradient-to-r from-emerald-600 to-teal-500 bg-clip-text text-transparent">
+              TeamPulse
+            </span>
+          </Link>
+          <p className="mt-2 text-gray-500 text-sm">Sign in to your workspace</p>
         </div>
 
         {/* Card */}
-        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8 shadow-2xl">
-          <h2 className="text-xl font-semibold text-white mb-6">Welcome back</h2>
+        <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm">
+          <h2 className="text-xl font-bold text-gray-900 mb-6">Welcome back</h2>
 
           {errors.general && (
-            <div className="mb-4 rounded-lg bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-400">
+            <div className="mb-4 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">
               {errors.general}
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-5" id="login-form">
             <div>
-              <label htmlFor="email" className="block text-sm text-gray-400 mb-1.5">
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">
                 Email
               </label>
               <input
@@ -72,14 +74,14 @@ export default function LoginPage() {
                 autoComplete="email"
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
-                className="w-full rounded-lg bg-gray-800 border border-gray-700 px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition"
+                className="w-full rounded-lg bg-white border border-gray-300 px-4 py-2.5 text-gray-900 placeholder-gray-400 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition"
                 placeholder="you@example.com"
               />
-              {errors.email && <p className="mt-1 text-xs text-red-400">{errors.email}</p>}
+              {errors.email && <p className="mt-1 text-xs text-red-500">{errors.email}</p>}
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm text-gray-400 mb-1.5">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1.5">
                 Password
               </label>
               <input
@@ -88,17 +90,17 @@ export default function LoginPage() {
                 autoComplete="current-password"
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
-                className="w-full rounded-lg bg-gray-800 border border-gray-700 px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition"
+                className="w-full rounded-lg bg-white border border-gray-300 px-4 py-2.5 text-gray-900 placeholder-gray-400 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition"
                 placeholder="••••••••"
               />
-              {errors.password && <p className="mt-1 text-xs text-red-400">{errors.password}</p>}
+              {errors.password && <p className="mt-1 text-xs text-red-500">{errors.password}</p>}
             </div>
 
             <button
               id="login-submit"
               type="submit"
               disabled={login.isPending}
-              className="w-full rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2.5 text-white font-medium transition-colors"
+              className="w-full rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2.5 text-white font-semibold transition-colors shadow-sm"
             >
               {login.isPending ? 'Signing in…' : 'Sign in'}
             </button>
@@ -106,7 +108,7 @@ export default function LoginPage() {
 
           <p className="mt-6 text-center text-sm text-gray-500">
             Don&apos;t have an account?{' '}
-            <Link href="/register" className="text-emerald-400 hover:text-emerald-300 transition-colors">
+            <Link href="/register" className="text-emerald-600 hover:text-emerald-500 font-medium transition-colors">
               Create one
             </Link>
           </p>
