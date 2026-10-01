@@ -36,7 +36,7 @@ export function useLogin() {
 
 export function useRegister() {
   return useMutation({
-    mutationFn: async (data: { name: string; email: string; password: string }) => {
+    mutationFn: async (data: { name: string; username: string; email: string; password: string }) => {
       const res = await api.post<AuthResponse>('/auth/register', data);
       return res.data.data.user;
     },

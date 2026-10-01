@@ -37,10 +37,13 @@ export const updateTeamSchema = z
 // ---------------------------------------------------------------------------
 
 export const addMemberSchema = z.object({
-  userId: z.string().uuid('userId must be a valid UUID'),
+  userId:   z.string().uuid('userId must be a valid UUID').optional(),
+  username: z.string().trim().toLowerCase().optional(),
   role: z.enum(['ADMIN', 'MEMBER'], {
     errorMap: () => ({ message: 'Role must be ADMIN or MEMBER' }),
   }),
+}).refine((d) => d.userId || d.username, {
+  message: 'Provide either userId or username',
 });
 
 // ---------------------------------------------------------------------------

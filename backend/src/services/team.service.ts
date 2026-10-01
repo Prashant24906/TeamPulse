@@ -1,5 +1,6 @@
 import { AppError } from '../middleware/error.middleware';
 import * as teamRepo from '../repositories/team.repository';
+import * as userRepo from '../repositories/user.repository';
 import type { TeamRole } from '../repositories/team.repository';
 import type {
   CreateTeamInput,
@@ -135,8 +136,17 @@ export async function addMember(
   if (!callerRole) throw new AppError(403, 'You are not a member of this team');
   if (!hasRole(callerRole, 'ADMIN')) throw new AppError(403, 'Only OWNER or ADMIN can add members');
 
+  // Resolve username → userId if needed
+  let resolvedUserId = input.userId;
+  if (!resolvedUserId && input.username) {
+    const found = await userRepo.findByUsername(input.username);
+    if (!found) throw new AppError(404, `No user found with username "${input.username}"`);
+    resolvedUserId = found.id;
+  }
+  if (!resolvedUserId) throw new AppError(400, 'Provide either userId or username');
+
   // Check the target isn't already a member
-  const existingRole = await teamRepo.findMemberRole(teamId, input.userId);
+  const existingRole = await teamRepo.findMemberRole(teamId, resolvedUserId);
   if (existingRole) throw new AppError(409, 'User is already a member of this team');
 
   // Check max_size
@@ -147,15 +157,13 @@ export async function addMember(
     throw new AppError(400, `Team is full (max_size: ${team.max_size})`);
   }
 
-  const member = await teamRepo.addMember(teamId, input.userId, input.role);
+  const member = await teamRepo.addMember(teamId, resolvedUserId, input.role);
 
   emitToTeam(teamId, WS_EVENTS.TEAM_MEMBER_ADDED, {
     teamId,
-    userId: input.userId,
+    userId: resolvedUserId,
     role:   input.role,
   });
-  // Note: the newly added user is not in the room yet — they'll auto-join
-  // team rooms on their next connect. Existing members receive the event.
 
   return member;
 }

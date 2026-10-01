@@ -31,13 +31,19 @@ export async function register(input: RegisterInput) {
     throw new AppError(409, 'An account with this email already exists');
   }
 
-  // 2. Hash password
+  // 2. Check username is not already taken
+  const existingUsername = await userRepo.findByUsername(input.username);
+  if (existingUsername) {
+    throw new AppError(409, 'This username is already taken');
+  }
+
+  // 3. Hash password
   const passwordHash = await bcrypt.hash(input.password, SALT_ROUNDS);
 
-  // 3. Persist
-  const user = await userRepo.createUser(input.name, input.email, passwordHash);
+  // 4. Persist
+  const user = await userRepo.createUser(input.name, input.username, input.email, passwordHash);
 
-  // 4. Issue JWT
+  // 5. Issue JWT
   const token = signToken(user.id);
 
   return { user, token };
@@ -48,17 +54,21 @@ export async function register(input: RegisterInput) {
 // ---------------------------------------------------------------------------
 
 export async function login(input: LoginInput) {
-  // 1. Fetch user (include password_hash for comparison)
-  const user = await userRepo.findByEmail(input.email);
+  // 1. Determine if the identifier is an email or a username
+  const isEmail = input.email.includes('@');
+  const user = isEmail
+    ? await userRepo.findByEmail(input.email.toLowerCase())
+    : await userRepo.findByUsername(input.email.toLowerCase());
+
   if (!user) {
     // Same error as wrong password — avoids user enumeration
-    throw new AppError(401, 'Invalid email or password');
+    throw new AppError(401, 'Invalid email/username or password');
   }
 
   // 2. Compare password
   const valid = await bcrypt.compare(input.password, user.password_hash);
   if (!valid) {
-    throw new AppError(401, 'Invalid email or password');
+    throw new AppError(401, 'Invalid email/username or password');
   }
 
   // 3. Build safe public user (no hash)

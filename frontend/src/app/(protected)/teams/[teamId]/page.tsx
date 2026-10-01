@@ -2,13 +2,14 @@
 
 import { useState, use } from 'react';
 import Link from 'next/link';
-import { useTeam, useTeamMembers, useUpdateTeam } from '@/hooks/useTeams';
+import { useTeam, useTeamMembers, useUpdateTeam, useRemoveMember, useUpdateMemberRole, useAddMember } from '@/hooks/useTeams';
+import { useAuth } from '@/hooks/useAuth';
 import { useProjects, useDeleteProject, useCreateProject } from '@/hooks/useProjects';
 import { useJoinRequests, useUpdateJoinRequest } from '@/hooks/useTeamDiscovery';
 import { ChatPanel } from '@/components/chat/ChatPanel';
 import {
   FolderOpen, Users, Plus, Trash2, ChevronRight,
-  Loader2, AlertCircle, X, ArrowLeft, UserCheck, Inbox, Pencil,
+  Loader2, AlertCircle, X, ArrowLeft, UserCheck, Inbox, Pencil, ShieldCheck, UserPlus,
 } from 'lucide-react';
 import type { TeamRole } from '@/types/team';
 import { z } from 'zod';
@@ -31,6 +32,95 @@ const ROLE_COLORS: Record<TeamRole, string> = {
   ADMIN:  'text-sky-400 bg-sky-400/10 border-sky-400/20',
   MEMBER: 'text-gray-400 bg-gray-400/10 border-gray-700',
 };
+
+// ---------------------------------------------------------------------------
+// AddMemberModal
+// ---------------------------------------------------------------------------
+
+function AddMemberModal({
+  teamId,
+  onClose,
+}: {
+  teamId: string;
+  onClose: () => void;
+}) {
+  const addMember = useAddMember(teamId);
+  const [username, setUsername] = useState('');
+  const [role, setRole]         = useState<'ADMIN' | 'MEMBER'>('MEMBER');
+  const [error, setError]       = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    const clean = username.trim().replace(/^@/, '').toLowerCase();
+    if (!clean) { setError('Enter a username'); return; }
+    try {
+      await addMember.mutateAsync({ username: clean, role });
+      onClose();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })
+        ?.response?.data?.message ?? 'Failed to add member.';
+      setError(msg);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+      <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-sm p-6 shadow-2xl">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-semibold text-white">Add Member</h2>
+          <button onClick={onClose} className="text-gray-500 hover:text-white transition"><X size={18} /></button>
+        </div>
+
+        {error && (
+          <div className="mb-4 rounded-lg bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-400">{error}</div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4" id="add-member-form">
+          <div>
+            <label htmlFor="add-member-username" className="block text-sm text-gray-400 mb-1.5">Username</label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">@</span>
+              <input
+                id="add-member-username"
+                autoFocus
+                value={username}
+                onChange={(e) => setUsername(e.target.value.replace(/^@/, ''))}
+                className="w-full rounded-lg bg-gray-800 border border-gray-700 pl-7 pr-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition"
+                placeholder="their_username"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label htmlFor="add-member-role" className="block text-sm text-gray-400 mb-1.5">Role</label>
+            <select
+              id="add-member-role"
+              value={role}
+              onChange={(e) => setRole(e.target.value as 'ADMIN' | 'MEMBER')}
+              className="w-full rounded-lg bg-gray-800 border border-gray-700 px-3 py-2.5 text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition"
+            >
+              <option value="MEMBER">MEMBER</option>
+              <option value="ADMIN">ADMIN</option>
+            </select>
+          </div>
+
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose} className="flex-1 rounded-lg border border-gray-700 px-4 py-2.5 text-gray-400 hover:text-white transition text-sm">Cancel</button>
+            <button
+              id="add-member-submit"
+              type="submit"
+              disabled={addMember.isPending}
+              className="flex-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 px-4 py-2.5 text-white font-medium transition text-sm"
+            >
+              {addMember.isPending ? 'Adding…' : 'Add Member'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // EditTeamModal
@@ -295,10 +385,16 @@ export default function TeamPage({ params }: { params: Promise<{ teamId: string 
 
   const myRole = team?.role ?? 'MEMBER';
   const canManage = myRole === 'OWNER' || myRole === 'ADMIN';
+  const isOwner   = myRole === 'OWNER';
+  const { data: me } = useAuth();
+  const myId = me?.id ?? '';
+  const removeMember     = useRemoveMember(teamId);
+  const updateMemberRole = useUpdateMemberRole(teamId);
 
-  const [tab, setTab] = useState<Tab>('projects');
+  const [tab, setTab]           = useState<Tab>('projects');
   const [showCreate, setShowCreate] = useState(false);
   const [showEdit,   setShowEdit]   = useState(false);
+  const [showAddMember, setShowAddMember] = useState(false);
 
   const tabs: { id: Tab; label: string; badge?: number }[] = [
     { id: 'projects', label: 'Projects' },
@@ -351,6 +447,15 @@ export default function TeamPage({ params }: { params: Promise<{ teamId: string 
               className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition"
             >
               <Plus size={16} /> New Project
+            </button>
+          )}
+          {tab === 'members' && canManage && (
+            <button
+              id="open-add-member"
+              onClick={() => setShowAddMember(true)}
+              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition"
+            >
+              <UserPlus size={16} /> Add Member
             </button>
           )}
         </div>
@@ -438,20 +543,70 @@ export default function TeamPage({ params }: { params: Promise<{ teamId: string 
       {tab === 'members' && (
         <div className="space-y-2">
           {!members && <div className="flex justify-center py-12"><Loader2 className="animate-spin text-gray-500" size={20} /></div>}
-          {members?.map((m) => (
-            <div key={m.user_id} className="bg-gray-900 border border-gray-800 rounded-xl px-5 py-3.5 flex items-center gap-4">
-              <div className="h-9 w-9 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400 font-semibold text-sm flex-shrink-0">
-                {m.name.charAt(0).toUpperCase()}
+          {members?.map((m) => {
+            const isSelf      = m.user_id === myId;
+            const isThisOwner = m.role === 'OWNER';
+            // Can manage this row: caller is OWNER/ADMIN, row is not themselves, row is not the OWNER
+            const canAct = canManage && !isSelf && !isThisOwner;
+
+            return (
+              <div key={m.user_id} className="bg-gray-900 border border-gray-800 rounded-xl px-5 py-3.5 flex items-center gap-4">
+                {/* Avatar */}
+                <div className="h-9 w-9 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400 font-semibold text-sm flex-shrink-0">
+                  {m.name.charAt(0).toUpperCase()}
+                </div>
+
+                {/* Name + email */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-white text-sm font-medium truncate">
+                    {m.name}{isSelf && <span className="ml-1.5 text-xs text-gray-500">(you)</span>}
+                  </p>
+                  <p className="text-gray-500 text-xs truncate">{m.email}</p>
+                </div>
+
+                {/* Role — editable dropdown for eligible rows, static badge otherwise */}
+                {canAct ? (
+                  <select
+                    id={`role-select-${m.user_id}`}
+                    value={m.role}
+                    disabled={updateMemberRole.isPending}
+                    onChange={(e) =>
+                      updateMemberRole.mutate({
+                        userId: m.user_id,
+                        role: e.target.value as 'ADMIN' | 'MEMBER',
+                      })
+                    }
+                    className="text-xs rounded-lg bg-gray-800 border border-gray-700 px-2 py-1 text-gray-300 focus:outline-none focus:border-emerald-500 transition cursor-pointer"
+                  >
+                    <option value="ADMIN">ADMIN</option>
+                    <option value="MEMBER">MEMBER</option>
+                  </select>
+                ) : (
+                  <span className={`flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border ${ROLE_COLORS[m.role]}`}>
+                    {m.role === 'OWNER' && <ShieldCheck size={11} />}
+                    {m.role}
+                  </span>
+                )}
+
+                {/* Kick button */}
+                {canAct && (
+                  <button
+                    id={`kick-${m.user_id}`}
+                    onClick={() => {
+                      if (confirm(`Remove ${m.name} from the team?`)) {
+                        removeMember.mutate(m.user_id);
+                      }
+                    }}
+                    disabled={removeMember.isPending}
+                    className="text-gray-600 hover:text-red-400 transition p-1.5 rounded disabled:opacity-50"
+                    title="Remove member"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                )}
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-white text-sm font-medium truncate">{m.name}</p>
-                <p className="text-gray-500 text-xs truncate">{m.email}</p>
-              </div>
-              <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${ROLE_COLORS[m.role]}`}>
-                {m.role}
-              </span>
-            </div>
-          ))}
+            );
+          })}
           {members?.length === 0 && (
             <div className="flex flex-col items-center py-12 text-gray-500">
               <Users size={32} className="text-gray-700 mb-2" />
@@ -480,6 +635,10 @@ export default function TeamPage({ params }: { params: Promise<{ teamId: string 
           currentMaxSize={team.max_size}
           onClose={() => setShowEdit(false)}
         />
+      )}
+
+      {showAddMember && (
+        <AddMemberModal teamId={teamId} onClose={() => setShowAddMember(false)} />
       )}
     </div>
   );
