@@ -20,7 +20,7 @@ export function MessageBubble({ message }: Props) {
   return (
     <div className={`flex flex-col gap-0.5 ${isOwn ? 'items-end' : 'items-start'}`}>
       {/* Sender name */}
-      <span className="text-xs text-gray-500 px-1">
+      <span className="text-xs text-black px-1">
         {isOwn ? 'You' : message.sender_name}
       </span>
 
@@ -36,7 +36,7 @@ export function MessageBubble({ message }: Props) {
         <div
           className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed break-words whitespace-pre-wrap ${
             isOwn
-              ? 'bg-emerald-600 text-white rounded-br-sm'
+              ? 'bg-gray-800 text-white rounded-br-sm'
               : 'bg-gray-800 border border-gray-700/60 text-gray-200 rounded-bl-sm'
           }`}
         >

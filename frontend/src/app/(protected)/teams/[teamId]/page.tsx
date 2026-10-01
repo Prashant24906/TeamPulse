@@ -2,13 +2,13 @@
 
 import { useState, use } from 'react';
 import Link from 'next/link';
-import { useTeam, useTeamMembers } from '@/hooks/useTeams';
+import { useTeam, useTeamMembers, useUpdateTeam } from '@/hooks/useTeams';
 import { useProjects, useDeleteProject, useCreateProject } from '@/hooks/useProjects';
 import { useJoinRequests, useUpdateJoinRequest } from '@/hooks/useTeamDiscovery';
 import { ChatPanel } from '@/components/chat/ChatPanel';
 import {
   FolderOpen, Users, Plus, Trash2, ChevronRight,
-  Loader2, AlertCircle, X, ArrowLeft, UserCheck, Inbox,
+  Loader2, AlertCircle, X, ArrowLeft, UserCheck, Inbox, Pencil,
 } from 'lucide-react';
 import type { TeamRole } from '@/types/team';
 import { z } from 'zod';
@@ -21,11 +21,110 @@ const createProjectSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
 });
 
+const editTeamSchema = z.object({
+  name:     z.string().min(2, 'Name must be at least 2 characters'),
+  max_size: z.coerce.number().int().min(2, 'Min 2').max(100, 'Max 100'),
+});
+
 const ROLE_COLORS: Record<TeamRole, string> = {
   OWNER:  'text-amber-400 bg-amber-400/10 border-amber-400/20',
   ADMIN:  'text-sky-400 bg-sky-400/10 border-sky-400/20',
   MEMBER: 'text-gray-400 bg-gray-400/10 border-gray-700',
 };
+
+// ---------------------------------------------------------------------------
+// EditTeamModal
+// ---------------------------------------------------------------------------
+
+function EditTeamModal({
+  teamId,
+  currentName,
+  currentMaxSize,
+  onClose,
+}: {
+  teamId: string;
+  currentName: string;
+  currentMaxSize: number;
+  onClose: () => void;
+}) {
+  const updateTeam = useUpdateTeam(teamId);
+  const [form, setForm] = useState({ name: currentName, max_size: String(currentMaxSize) });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrors({});
+    const parsed = editTeamSchema.safeParse(form);
+    if (!parsed.success) {
+      const fe = parsed.error.flatten().fieldErrors;
+      const fieldErrors: Record<string, string> = {};
+      Object.entries(fe).forEach(([k, v]) => { if (v?.[0]) fieldErrors[k] = v[0]; });
+      setErrors(fieldErrors);
+      return;
+    }
+    try {
+      await updateTeam.mutateAsync(parsed.data);
+      onClose();
+    } catch {
+      setErrors({ general: 'Failed to update team. Try again.' });
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+      <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-md p-6 shadow-2xl">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-semibold text-white">Edit Team</h2>
+          <button onClick={onClose} className="text-gray-500 hover:text-white transition"><X size={18} /></button>
+        </div>
+
+        {errors.general && (
+          <div className="mb-4 rounded-lg bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-400">{errors.general}</div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4" id="edit-team-form">
+          <div>
+            <label htmlFor="edit-team-name" className="block text-sm text-gray-400 mb-1.5">Team Name</label>
+            <input
+              id="edit-team-name"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              className="w-full rounded-lg bg-gray-800 border border-gray-700 px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition"
+              placeholder="e.g. Backend Team"
+            />
+            {errors.name && <p className="mt-1 text-xs text-red-400">{errors.name}</p>}
+          </div>
+
+          <div>
+            <label htmlFor="edit-team-size" className="block text-sm text-gray-400 mb-1.5">Max Members</label>
+            <input
+              id="edit-team-size"
+              type="number"
+              min={2}
+              max={100}
+              value={form.max_size}
+              onChange={(e) => setForm({ ...form, max_size: e.target.value })}
+              className="w-full rounded-lg bg-gray-800 border border-gray-700 px-4 py-2.5 text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition"
+            />
+            {errors.max_size && <p className="mt-1 text-xs text-red-400">{errors.max_size}</p>}
+          </div>
+
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose} className="flex-1 rounded-lg border border-gray-700 px-4 py-2.5 text-gray-400 hover:text-white transition text-sm">Cancel</button>
+            <button
+              id="edit-team-submit"
+              type="submit"
+              disabled={updateTeam.isPending}
+              className="flex-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 px-4 py-2.5 text-white font-medium transition text-sm"
+            >
+              {updateTeam.isPending ? 'Saving…' : 'Save Changes'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // CreateProjectModal
@@ -199,6 +298,7 @@ export default function TeamPage({ params }: { params: Promise<{ teamId: string 
 
   const [tab, setTab] = useState<Tab>('projects');
   const [showCreate, setShowCreate] = useState(false);
+  const [showEdit,   setShowEdit]   = useState(false);
 
   const tabs: { id: Tab; label: string; badge?: number }[] = [
     { id: 'projects', label: 'Projects' },
@@ -222,7 +322,19 @@ export default function TeamPage({ params }: { params: Promise<{ teamId: string 
       ) : (
         <div className="flex items-start justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-white">{team?.name}</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-bold text-black">{team?.name}</h1>
+              {canManage && (
+                <button
+                  id="open-edit-team"
+                  onClick={() => setShowEdit(true)}
+                  className="text-gray-600 hover:text-emerald-400 transition p-1 rounded"
+                  title="Edit team"
+                >
+                  <Pencil size={15} />
+                </button>
+              )}
+            </div>
             <p className="text-gray-500 text-sm mt-1">
               {members?.length ?? 0} / {team?.max_size} members
               {team && (
@@ -360,6 +472,15 @@ export default function TeamPage({ params }: { params: Promise<{ teamId: string 
       )}
 
       {showCreate && <CreateProjectModal teamId={teamId} onClose={() => setShowCreate(false)} />}
+
+      {showEdit && team && (
+        <EditTeamModal
+          teamId={teamId}
+          currentName={team.name}
+          currentMaxSize={team.max_size}
+          onClose={() => setShowEdit(false)}
+        />
+      )}
     </div>
   );
 }

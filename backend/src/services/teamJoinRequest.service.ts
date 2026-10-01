@@ -18,10 +18,6 @@ function hasRole(actual: 'OWNER' | 'ADMIN' | 'MEMBER', required: 'OWNER' | 'ADMI
 // ---------------------------------------------------------------------------
 
 export async function searchTeams(userId: string, q: string) {
-  // Validation already happened in the controller (Zod), but guard once more
-  if (!q || q.trim().length < 2) {
-    throw new AppError(400, 'Search query must be at least 2 characters');
-  }
   return joinRepo.searchTeams(userId, q.trim());
 }
 

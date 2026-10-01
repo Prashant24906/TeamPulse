@@ -107,145 +107,6 @@ function CreateTeamModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-// ---------------------------------------------------------------------------
-// JoinButton
-// ---------------------------------------------------------------------------
-
-function JoinButton({ team }: { team: TeamSearchResult }) {
-  const createJoinRequest = useCreateJoinRequest();
-  const [localPending, setLocalPending] = useState(false);
-
-  const isPending    = team.has_pending_request || localPending;
-  const isMember     = team.is_member;
-  const isSubmitting = createJoinRequest.isPending;
-
-  const handleJoin = useCallback(async () => {
-    try {
-      await createJoinRequest.mutateAsync(team.id);
-      setLocalPending(true);
-    } catch { /* silent */ }
-  }, [createJoinRequest, team.id]);
-
-  if (isMember) {
-    return (
-      <span className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200">
-        <CheckCircle size={13} /> Joined
-      </span>
-    );
-  }
-
-  if (isPending) {
-    return (
-      <span id={`join-pending-${team.id}`} className="flex items-center gap-1.5 text-xs font-semibold text-amber-700 bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-200">
-        <Clock size={13} /> Request Sent
-      </span>
-    );
-  }
-
-  return (
-    <button
-      id={`join-team-${team.id}`}
-      onClick={handleJoin}
-      disabled={isSubmitting}
-      className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-lg border border-emerald-200 transition disabled:opacity-50"
-    >
-      {isSubmitting ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
-      Join
-    </button>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// TeamSearchModal
-// ---------------------------------------------------------------------------
-
-function TeamSearchModal({ onClose }: { onClose: () => void }) {
-  const [query, setQuery] = useState('');
-  const { data: results, isLoading, isError } = useTeamSearch(query);
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/30 backdrop-blur-sm px-4 pt-20">
-      <div className="bg-white border border-gray-200 rounded-2xl w-full max-w-lg shadow-xl overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h2 className="text-lg font-bold text-gray-900">Search Teams</h2>
-          <button id="close-search-modal" onClick={onClose} className="text-gray-400 hover:text-gray-700 transition">
-            <X size={18} />
-          </button>
-        </div>
-
-        <div className="px-6 py-4 border-b border-gray-100">
-          <div className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500 transition">
-            <Search size={16} className="text-gray-400 flex-shrink-0" />
-            <input
-              id="team-search-input"
-              autoFocus
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Team name…"
-              className="bg-transparent text-gray-900 placeholder-gray-400 text-sm flex-1 outline-none"
-            />
-            {query && (
-              <button onClick={() => setQuery('')} className="text-gray-400 hover:text-gray-600 transition">
-                <X size={14} />
-              </button>
-            )}
-          </div>
-          {query.length > 0 && query.trim().length < 2 && (
-            <p className="mt-1.5 text-xs text-gray-400">Type at least 2 characters to search</p>
-          )}
-        </div>
-
-        <div className="max-h-[400px] overflow-y-auto">
-          {query.trim().length < 2 && (
-            <div className="flex flex-col items-center gap-2 py-12 text-gray-400">
-              <Search size={28} className="text-gray-300" />
-              <p className="text-sm">Search for teams to join</p>
-            </div>
-          )}
-
-          {query.trim().length >= 2 && isLoading && (
-            <div className="flex items-center justify-center gap-2 py-12 text-gray-400">
-              <Loader2 className="animate-spin" size={18} />
-              <span className="text-sm">Searching…</span>
-            </div>
-          )}
-
-          {query.trim().length >= 2 && isError && (
-            <div className="flex flex-col items-center gap-2 py-12 text-gray-400">
-              <AlertCircle size={22} className="text-red-400" />
-              <p className="text-sm">Search failed. Try again.</p>
-            </div>
-          )}
-
-          {query.trim().length >= 2 && !isLoading && !isError && results?.length === 0 && (
-            <div className="flex flex-col items-center gap-2 py-12 text-gray-400">
-              <Users size={28} className="text-gray-300" />
-              <p className="text-sm">No teams found matching &ldquo;{query}&rdquo;</p>
-            </div>
-          )}
-
-          {!isLoading && results && results.length > 0 && (
-            <ul className="divide-y divide-gray-100">
-              {results.map((team) => (
-                <li key={team.id} id={`search-result-${team.id}`} className="flex items-center gap-4 px-6 py-4 hover:bg-gray-50 transition">
-                  <div className="h-9 w-9 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0">
-                    <Users size={16} className="text-emerald-600" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-gray-900 text-sm font-semibold truncate">{team.name}</p>
-                    <p className="text-gray-400 text-xs">{team.member_count} / {team.max_size} members</p>
-                  </div>
-                  <JoinButton team={team} />
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // TeamsPage
@@ -306,7 +167,7 @@ export default function TeamsPage() {
       {!isLoading && teams && teams.length > 0 && (
         <div className="space-y-2">
           {teams.map((team) => (
-            <div key={team.id} className="bg-white border border-gray-200 rounded-xl flex items-center px-5 py-4 gap-4 hover:border-gray-300 hover:shadow-sm transition">
+            <Link href={`/teams/${team.id}`} key={team.id} className="bg-white border border-gray-200 rounded-xl flex items-center px-5 py-4 gap-4 hover:border-gray-300 hover:shadow-sm transition">
               <div className="h-10 w-10 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0">
                 <Users size={18} className="text-emerald-600" />
               </div>
@@ -329,21 +190,14 @@ export default function TeamsPage() {
                     <Trash2 size={15} />
                   </button>
                 )}
-                <Link
-                  href={`/teams/${team.id}`}
-                  id={`view-team-${team.id}`}
-                  className="text-gray-400 hover:text-emerald-600 transition p-1.5 rounded"
-                >
-                  <ChevronRight size={18} />
-                </Link>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       )}
 
       {showCreate && <CreateTeamModal onClose={() => setShowCreate(false)} />}
-      {showSearch && <TeamSearchModal onClose={() => setShowSearch(false)} />}
+
     </div>
   );
 }

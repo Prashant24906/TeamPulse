@@ -20,8 +20,8 @@ export function useTeamSearch(q: string) {
       const res = await api.get<SearchResponse>('/teams/search', { params: { q } });
       return res.data.data.teams;
     },
-    enabled: q.trim().length >= 2,
-    staleTime: 15 * 1000,   // 15 s — search results stay fresh briefly
+    enabled: true,           // always on — empty q returns all discoverable teams
+    staleTime: 15 * 1000,   // 15 s
   });
 }
 
