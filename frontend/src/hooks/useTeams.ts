@@ -106,3 +106,25 @@ export function useUpdateMemberRole(teamId: string) {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['team-members', teamId] }),
   });
 }
+
+// ---------------------------------------------------------------------------
+// useLeaveTeam — current user self-removes from a team.
+// Distinct from useRemoveMember (which is an admin action on another member).
+// ---------------------------------------------------------------------------
+
+export function useLeaveTeam(teamId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (userId: string) => {
+      await api.delete(`/teams/${teamId}/members/${userId}`);
+    },
+    onSuccess: (_, userId) => {
+      // Optimistically remove the team from the list so navigation is instant
+      qc.setQueryData<{ id: string }[]>(['teams'], (old) =>
+        old ? old.filter((t) => t.id !== teamId) : old
+      );
+      qc.removeQueries({ queryKey: ['team', teamId] });
+      qc.removeQueries({ queryKey: ['team-members', teamId] });
+    },
+  });
+}

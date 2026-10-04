@@ -6,6 +6,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { connectSocket, disconnectSocket, getSocket } from '@/lib/socket';
 import type { TeamMessage } from '@/types/message';
 import type { Team } from '@/types/team';
+import type { User } from '@/types/user';
 
 // ---------------------------------------------------------------------------
 // useSocket — manages Socket.IO lifecycle for a protected page
@@ -59,8 +60,22 @@ export function useSocket() {
       qc.invalidateQueries({ queryKey: ['team-members', payload.teamId] });
       qc.invalidateQueries({ queryKey: ['join-requests', payload.teamId] });
     });
-    socket.on('team.member_removed', (payload: { teamId: string }) => {
+    socket.on('team.member_removed', (payload: { teamId: string; userId: string }) => {
       qc.invalidateQueries({ queryKey: ['team-members', payload.teamId] });
+
+      // If the current user was removed (self-leave or kicked), clean up their
+      // cache and redirect them away from any page belonging to that team.
+      const me = qc.getQueryData<User>(['me']);
+      if (me && me.id === payload.userId) {
+        qc.setQueryData<Team[]>(['teams'], (old) =>
+          old ? old.filter((t) => t.id !== payload.teamId) : old
+        );
+        qc.removeQueries({ queryKey: ['team', payload.teamId] });
+        qc.removeQueries({ queryKey: ['team-members', payload.teamId] });
+        if (pathname?.startsWith(`/teams/${payload.teamId}`)) {
+          router.replace('/teams');
+        }
+      }
     });
     // New join request submitted — notify admin UI
     socket.on('team.join_request_created', (payload: { teamId: string }) => {

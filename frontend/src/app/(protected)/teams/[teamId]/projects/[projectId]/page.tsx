@@ -1,13 +1,15 @@
 'use client';
 
 import { useState, use } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useProject } from '@/hooks/useProjects';
-import { useTeam, useTeamMembers } from '@/hooks/useTeams';
+import { useTeam, useTeamMembers, useLeaveTeam } from '@/hooks/useTeams';
 import { useTasks, useCreateTask, useUpdateTask, useDeleteTask } from '@/hooks/useTasks';
+import { useAuth } from '@/hooks/useAuth';
 import {
   ArrowLeft, Plus, X, Loader2, AlertCircle,
-  Calendar, User, Flag, Trash2, Pencil
+  Calendar, User, Flag, Trash2, Pencil, LogOut
 } from 'lucide-react';
 import type { Task, TaskStatus, TaskPriority } from '@/types/task';
 import { z } from 'zod';
@@ -16,10 +18,10 @@ import { z } from 'zod';
 // Constants
 // ---------------------------------------------------------------------------
 
-const COLUMNS: { status: TaskStatus; label: string; color: string }[] = [
-  { status: 'TODO',        label: 'Todo',        color: 'text-gray-400' },
-  { status: 'IN_PROGRESS', label: 'In Progress', color: 'text-amber-400' },
-  { status: 'COMPLETED',   label: 'Completed',   color: 'text-emerald-400' },
+const COLUMNS: { status: TaskStatus; label: string; color: string; bg_color: string }[] = [
+  { status: 'TODO',        label: 'Todo',        color: 'text-gray-400', bg_color: 'bg-gray-400/10' },
+  { status: 'IN_PROGRESS', label: 'In Progress', color: 'text-amber-400', bg_color: 'bg-amber-400/10' },
+  { status: 'COMPLETED',   label: 'Completed',   color: 'text-emerald-400', bg_color: 'bg-emerald-400/10' },
 ];
 
 const PRIORITY_COLORS: Record<TaskPriority, string> = {
@@ -232,7 +234,7 @@ function TaskCard({
   const assigneeName = members.find((m) => m.user_id === task.assigned_to)?.name;
 
   return (
-    <div className="group bg-gray-950 border border-gray-800 rounded-xl p-4 hover:border-gray-700 transition-all">
+    <div className="group bg-gray-900 border border-gray-800 rounded-xl p-4 hover:border-gray-700 transition-all">
       <div className="flex items-start justify-between gap-2 mb-3">
         <h4 className="text-white text-sm font-medium leading-snug flex-1">{task.name}</h4>
         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
@@ -287,6 +289,7 @@ function KanbanColumn({
   status,
   label,
   color,
+  bg_color,
   tasks,
   members,
   projectId,
@@ -297,6 +300,7 @@ function KanbanColumn({
   status: TaskStatus;
   label: string;
   color: string;
+  bg_color: string;
   tasks: Task[];
   members: { user_id: string; name: string }[];
   projectId: string;
@@ -309,7 +313,7 @@ function KanbanColumn({
   return (
     <div className="flex flex-col bg-gray-900/50 border border-gray-800 rounded-xl min-h-[400px]">
       {/* Column header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800 bg-gray-900 rounded-lg">
         <div className="flex items-center gap-2">
           <span className={`text-sm font-semibold ${color}`}>{label}</span>
           <span className="text-xs text-gray-600 bg-gray-800 rounded-full px-2 py-0.5">{tasks.length}</span>
@@ -326,7 +330,7 @@ function KanbanColumn({
       </div>
 
       {/* Tasks */}
-      <div className="flex-1 p-3 space-y-2 overflow-y-auto">
+      <div className={`flex-1 p-3 space-y-2 overflow-y-auto ${bg_color}`}>
         {tasks.length === 0 && (
           <p className="text-center text-gray-700 text-xs py-8">No tasks</p>
         )}
@@ -362,16 +366,32 @@ export default function ProjectPage({
 }: {
   params: Promise<{ teamId: string; projectId: string }>;
 }) {
+  const router = useRouter();
   const { teamId, projectId } = use(params);
   const { data: project, isLoading: projLoading } = useProject(projectId);
   const { data: tasks,   isLoading: tasksLoading, isError, refetch } = useTasks(projectId);
   const { data: members = [] } = useTeamMembers(teamId);
   const { data: team }  = useTeam(teamId);
+  const { data: me }    = useAuth();
 
-  const [editTask, setEditTask] = useState<Task | undefined>();
+  const [editTask, setEditTask]       = useState<Task | undefined>();
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
 
-  const myRole = team?.role ?? 'MEMBER';
-  const canManage = myRole === 'OWNER' || myRole === 'ADMIN' || myRole === 'MEMBER'; // all can create
+  const myRole   = team?.role ?? 'MEMBER';
+  const isOwner  = myRole === 'OWNER';
+  const canManage = true; // all members can create tasks
+
+  const leaveTeam = useLeaveTeam(teamId);
+
+  const handleLeave = async () => {
+    if (!me) return;
+    try {
+      await leaveTeam.mutateAsync(me.id);
+      router.replace('/teams');
+    } catch {
+      // error is surfaced in the modal
+    }
+  };
 
   const tasksByStatus = (status: TaskStatus) =>
     tasks?.filter((t) => t.status === status) ?? [];
@@ -379,16 +399,30 @@ export default function ProjectPage({
   return (
     <div className="p-8 h-full flex flex-col">
       {/* Back */}
-      <Link href={`/teams/${teamId}`} className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-300 transition mb-6">
-        <ArrowLeft size={15} /> {project?.name ?? 'Project'}
-      </Link>
+      <div className="flex items-center justify-between mb-6">
+        <Link href={`/teams/${teamId}`} className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-300 transition">
+          <ArrowLeft size={15} /> {project?.name ?? 'Project'}
+        </Link>
+
+        {/* Leave Team — hidden for OWNER (must transfer ownership first) */}
+        {!isOwner && (
+          <button
+            id="leave-team-btn"
+            onClick={() => setShowLeaveConfirm(true)}
+            className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-red-400 transition px-3 py-1.5 rounded-lg hover:bg-red-400/10 border border-transparent hover:border-red-400/20"
+          >
+            <LogOut size={14} />
+            Leave Team
+          </button>
+        )}
+      </div>
 
       {/* Header */}
       {projLoading ? (
         <div className="h-7 w-56 bg-gray-800 rounded animate-pulse mb-6" />
       ) : (
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-white">{project?.name}</h1>
+          <h1 className="text-2xl font-bold text-black">{project?.name}</h1>
           <span className="text-xs text-gray-500">{project?.status}</span>
         </div>
       )}
@@ -411,12 +445,13 @@ export default function ProjectPage({
       {/* Kanban Board */}
       {!tasksLoading && !isError && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-1">
-          {COLUMNS.map(({ status, label, color }) => (
+          {COLUMNS.map(({ status, label, color, bg_color }) => (
             <KanbanColumn
               key={status}
               status={status}
               label={label}
               color={color}
+              bg_color={bg_color}
               tasks={tasksByStatus(status)}
               members={members}
               projectId={projectId}
@@ -436,6 +471,48 @@ export default function ProjectPage({
           editTask={editTask}
           onClose={() => setEditTask(undefined)}
         />
+      )}
+
+      {/* Leave Team confirmation modal */}
+      {showLeaveConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-sm p-6 shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-10 w-10 rounded-full bg-red-500/10 flex items-center justify-center flex-shrink-0">
+                <LogOut size={18} className="text-red-400" />
+              </div>
+              <div>
+                <h2 className="text-white font-semibold">Leave team?</h2>
+                <p className="text-gray-500 text-xs mt-0.5">{team?.name}</p>
+              </div>
+            </div>
+            <p className="text-gray-400 text-sm mb-5">
+              You will lose access to all projects, tasks, and messages in this team.
+              You can rejoin later by submitting a new join request.
+            </p>
+            {leaveTeam.isError && (
+              <div className="mb-4 rounded-lg bg-red-500/10 border border-red-500/20 px-4 py-2.5 text-sm text-red-400">
+                Failed to leave team. Please try again.
+              </div>
+            )}
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setShowLeaveConfirm(false); leaveTeam.reset(); }}
+                className="flex-1 rounded-lg border border-gray-700 px-4 py-2.5 text-gray-400 hover:text-white transition text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                id="confirm-leave-btn"
+                onClick={handleLeave}
+                disabled={leaveTeam.isPending}
+                className="flex-1 rounded-lg bg-red-600 hover:bg-red-500 disabled:opacity-50 px-4 py-2.5 text-white font-medium transition text-sm"
+              >
+                {leaveTeam.isPending ? 'Leaving…' : 'Leave Team'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -1,15 +1,16 @@
 'use client';
 
 import { useState, use } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useTeam, useTeamMembers, useUpdateTeam, useRemoveMember, useUpdateMemberRole, useAddMember } from '@/hooks/useTeams';
+import { useTeam, useTeamMembers, useUpdateTeam, useRemoveMember, useUpdateMemberRole, useAddMember, useLeaveTeam } from '@/hooks/useTeams';
 import { useAuth } from '@/hooks/useAuth';
 import { useProjects, useDeleteProject, useCreateProject } from '@/hooks/useProjects';
 import { useJoinRequests, useUpdateJoinRequest } from '@/hooks/useTeamDiscovery';
 import { ChatPanel } from '@/components/chat/ChatPanel';
 import {
   FolderOpen, Users, Plus, Trash2, ChevronRight,
-  Loader2, AlertCircle, X, ArrowLeft, UserCheck, Inbox, Pencil, ShieldCheck, UserPlus,
+  Loader2, AlertCircle, X, ArrowLeft, UserCheck, Inbox, Pencil, ShieldCheck, UserPlus, LogOut,
 } from 'lucide-react';
 import type { TeamRole } from '@/types/team';
 import { z } from 'zod';
@@ -391,10 +392,24 @@ export default function TeamPage({ params }: { params: Promise<{ teamId: string 
   const removeMember     = useRemoveMember(teamId);
   const updateMemberRole = useUpdateMemberRole(teamId);
 
-  const [tab, setTab]           = useState<Tab>('projects');
-  const [showCreate, setShowCreate] = useState(false);
-  const [showEdit,   setShowEdit]   = useState(false);
+  const [tab, setTab]                     = useState<Tab>('projects');
+  const [showCreate, setShowCreate]       = useState(false);
+  const [showEdit,   setShowEdit]         = useState(false);
   const [showAddMember, setShowAddMember] = useState(false);
+  const [showLeave,  setShowLeave]        = useState(false);
+
+  const router    = useRouter();
+  const leaveTeam = useLeaveTeam(teamId);
+
+  const handleLeave = async () => {
+    if (!me) return;
+    try {
+      await leaveTeam.mutateAsync(me.id);
+      router.replace('/teams');
+    } catch {
+      // error surfaced in modal
+    }
+  };
 
   const tabs: { id: Tab; label: string; badge?: number }[] = [
     { id: 'projects', label: 'Projects' },
@@ -440,24 +455,36 @@ export default function TeamPage({ params }: { params: Promise<{ teamId: string 
               )}
             </p>
           </div>
-          {tab === 'projects' && canManage && (
-            <button
-              id="open-create-project"
-              onClick={() => setShowCreate(true)}
-              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition"
-            >
-              <Plus size={16} /> New Project
-            </button>
-          )}
-          {tab === 'members' && canManage && (
-            <button
-              id="open-add-member"
-              onClick={() => setShowAddMember(true)}
-              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition"
-            >
-              <UserPlus size={16} /> Add Member
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {tab === 'projects' && canManage && (
+              <button
+                id="open-create-project"
+                onClick={() => setShowCreate(true)}
+                className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition"
+              >
+                <Plus size={16} /> New Project
+              </button>
+            )}
+            {tab === 'members' && canManage && (
+              <button
+                id="open-add-member"
+                onClick={() => setShowAddMember(true)}
+                className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition"
+              >
+                <UserPlus size={16} /> Add Member
+              </button>
+            )}
+            {/* Leave — non-owners only */}
+            {!isOwner && (
+              <button
+                id="leave-team-btn"
+                onClick={() => setShowLeave(true)}
+                className="flex items-center gap-1.5 text-sm text-red-500 hover:text-red-400 transition px-3 py-2.5 rounded-lg hover:bg-red-400/10 border border-transparent hover:border-red-400/20"
+              >
+                <LogOut size={15} /> Leave
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -506,7 +533,7 @@ export default function TeamPage({ params }: { params: Promise<{ teamId: string 
           {!projLoading && projects && projects.length > 0 && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {projects.map((project) => (
-                <div key={project.id} className="group bg-gray-900 border border-gray-800 rounded-xl p-5 hover:border-emerald-500/40 transition-all flex flex-col gap-3">
+                <Link key={project.id} href={`/teams/${teamId}/projects/${project.id}`} className="group bg-gray-900 border border-gray-800 rounded-xl p-5 hover:border-emerald-500/40 transition-all flex flex-col gap-3">
                   <div className="flex items-start justify-between">
                     <div className="h-9 w-9 rounded-lg bg-teal-500/10 flex items-center justify-center">
                       <FolderOpen size={16} className="text-teal-400" />
@@ -525,14 +552,12 @@ export default function TeamPage({ params }: { params: Promise<{ teamId: string 
                     <h3 className="text-white font-semibold">{project.name}</h3>
                     <span className="text-xs text-gray-500">{project.status}</span>
                   </div>
-                  <Link
-                    href={`/teams/${teamId}/projects/${project.id}`}
-                    id={`view-project-${project.id}`}
+                  <div
                     className="flex items-center gap-1 text-sm text-gray-500 hover:text-emerald-400 transition"
                   >
                     Open <ChevronRight size={14} />
-                  </Link>
-                </div>
+                  </div>
+                </Link>
               ))}
             </div>
           )}
@@ -588,7 +613,7 @@ export default function TeamPage({ params }: { params: Promise<{ teamId: string 
                   </span>
                 )}
 
-                {/* Kick button */}
+                {/* Kick button — admin acting on another member */}
                 {canAct && (
                   <button
                     id={`kick-${m.user_id}`}
@@ -602,6 +627,18 @@ export default function TeamPage({ params }: { params: Promise<{ teamId: string 
                     title="Remove member"
                   >
                     <Trash2 size={14} />
+                  </button>
+                )}
+
+                {/* Leave button — only on the current user's own row, non-owners */}
+                {isSelf && !isOwner && (
+                  <button
+                    id="leave-team-self-row"
+                    onClick={() => setShowLeave(true)}
+                    className="text-gray-600 hover:text-red-400 transition p-1.5 rounded"
+                    title="Leave team"
+                  >
+                    <LogOut size={14} />
                   </button>
                 )}
               </div>
@@ -639,6 +676,48 @@ export default function TeamPage({ params }: { params: Promise<{ teamId: string 
 
       {showAddMember && (
         <AddMemberModal teamId={teamId} onClose={() => setShowAddMember(false)} />
+      )}
+
+      {/* Leave Team confirmation */}
+      {showLeave && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-sm p-6 shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-10 w-10 rounded-full bg-red-500/10 flex items-center justify-center flex-shrink-0">
+                <LogOut size={18} className="text-red-400" />
+              </div>
+              <div>
+                <h2 className="text-white font-semibold">Leave team?</h2>
+                <p className="text-gray-500 text-xs mt-0.5">{team?.name}</p>
+              </div>
+            </div>
+            <p className="text-gray-400 text-sm mb-5">
+              You will lose access to all projects, tasks, and messages in this team.
+              You can rejoin later by submitting a new join request.
+            </p>
+            {leaveTeam.isError && (
+              <div className="mb-4 rounded-lg bg-red-500/10 border border-red-500/20 px-4 py-2.5 text-sm text-red-400">
+                Failed to leave team. Please try again.
+              </div>
+            )}
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setShowLeave(false); leaveTeam.reset(); }}
+                className="flex-1 rounded-lg border border-gray-700 px-4 py-2.5 text-gray-400 hover:text-white transition text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                id="confirm-leave-btn"
+                onClick={handleLeave}
+                disabled={leaveTeam.isPending}
+                className="flex-1 rounded-lg bg-red-600 hover:bg-red-500 disabled:opacity-50 px-4 py-2.5 text-white font-medium transition text-sm"
+              >
+                {leaveTeam.isPending ? 'Leaving…' : 'Leave Team'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

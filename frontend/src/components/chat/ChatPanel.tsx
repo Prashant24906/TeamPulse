@@ -28,7 +28,7 @@ export function ChatPanel({ teamId }: Props) {
     <div className="flex flex-col bg-gray-900/50 border border-gray-800 rounded-xl overflow-hidden"
          style={{ height: 'calc(100vh - 280px)', minHeight: '400px' }}>
       {/* Header */}
-      <div className="px-5 py-3 border-b border-gray-800 flex-shrink-0">
+      <div className="px-5 py-3 border-b border-gray-800 flex-shrink-0 bg-gray-900">
         <h3 className="text-sm font-semibold text-white">Team Chat</h3>
         <p className="text-xs text-gray-500 mt-0.5">Messages are visible to all team members</p>
       </div>

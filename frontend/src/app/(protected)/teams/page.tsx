@@ -165,33 +165,43 @@ export default function TeamsPage() {
       )}
 
       {!isLoading && teams && teams.length > 0 && (
-        <div className="space-y-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {teams.map((team) => (
-            <Link href={`/teams/${team.id}`} key={team.id} className="bg-white border border-gray-200 rounded-xl flex items-center px-5 py-4 gap-4 hover:border-gray-300 hover:shadow-sm transition">
-              <div className="h-10 w-10 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0">
-                <Users size={18} className="text-emerald-600" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-gray-900 font-semibold truncate">{team.name}</h3>
-                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ${ROLE_COLORS[team.role]}`}>
+            <div key={team.id} className="relative group">
+              <Link
+                href={`/teams/${team.id}`}
+                id={`team-card-${team.id}`}
+                className="block bg-white border border-gray-200 rounded-xl p-5 hover:border-emerald-300 hover:shadow-md hover:shadow-emerald-50 transition-all"
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div className="h-10 w-10 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0">
+                    <Users size={18} className="text-emerald-600" />
+                  </div>
+                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${ROLE_COLORS[team.role]}`}>
                     {team.role}
                   </span>
                 </div>
-                <p className="text-gray-400 text-xs mt-0.5">Max {team.max_size} members</p>
-              </div>
-              <div className="flex items-center gap-1">
-                {(team.role === 'OWNER' || team.role === 'ADMIN') && (
-                  <button
-                    onClick={() => { if (confirm(`Delete "${team.name}"?`)) deleteTeam.mutate(team.id); }}
-                    id={`delete-team-${team.id}`}
-                    className="text-gray-300 hover:text-red-500 transition p-1.5 rounded"
-                  >
-                    <Trash2 size={15} />
-                  </button>
-                )}
-              </div>
-            </Link>
+                <h3 className="text-gray-900 font-semibold group-hover:text-emerald-600 transition-colors">
+                  {team.name}
+                </h3>
+                <p className="text-gray-400 text-xs mt-1">Max {team.max_size} members</p>
+              </Link>
+
+              {/* Delete button — owner/admin only, appears on card hover */}
+              {(team.role === 'OWNER' || team.role === 'ADMIN') && (
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (confirm(`Delete "${team.name}"?`)) deleteTeam.mutate(team.id);
+                  }}
+                  id={`delete-team-${team.id}`}
+                  className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition p-1.5 rounded"
+                  title="Delete team"
+                >
+                  <Trash2 size={14} />
+                </button>
+              )}
+            </div>
           ))}
         </div>
       )}
