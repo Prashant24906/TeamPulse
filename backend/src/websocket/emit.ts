@@ -1,4 +1,4 @@
-import { getIO, teamRoom } from './socket';
+import { getIO, teamRoom, userRoom } from './socket';
 import type { WsEvent } from './events';
 
 // ---------------------------------------------------------------------------
@@ -20,5 +20,25 @@ export function emitToTeam(
     // Never let a WebSocket failure break the HTTP response.
     // The DB mutation already committed — the event is best-effort.
     console.error('[ws] emitToTeam failed (non-fatal):', err);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// emitToUser — emit a typed event to a single user's personal room.
+//
+// Used for user-specific notifications (e.g. join request outcome) where
+// broadcasting to the entire team room would be inappropriate.
+// ---------------------------------------------------------------------------
+
+export function emitToUser(
+  userId: string,
+  event: WsEvent,
+  payload: Record<string, unknown>
+): void {
+  try {
+    getIO().to(userRoom(userId)).emit(event, payload);
+    console.log(`[ws] emit  event=${event} room=${userRoom(userId)}`);
+  } catch (err) {
+    console.error('[ws] emitToUser failed (non-fatal):', err);
   }
 }

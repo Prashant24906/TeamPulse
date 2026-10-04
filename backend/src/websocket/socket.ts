@@ -39,6 +39,10 @@ export function teamRoom(teamId: string): string {
   return `team:${teamId}`;
 }
 
+export function userRoom(userId: string): string {
+  return `user:${userId}`;
+}
+
 // ---------------------------------------------------------------------------
 // initSocket — attach Socket.IO to the existing HTTP server
 // ---------------------------------------------------------------------------
@@ -96,6 +100,13 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
   io.on('connection', async (socket) => {
     const { userId } = (socket as AuthenticatedSocket).user;
     console.log(`[ws] connected  userId=${userId} socketId=${socket.id}`);
+
+    // -----------------------------------------------------------------------
+    // Auto-join personal user room (for user-specific notifications, e.g.
+    // join request approval/rejection delivered only to the requester).
+    // -----------------------------------------------------------------------
+    await socket.join(userRoom(userId));
+    console.log(`[ws] ${userId} joined personal room ${userRoom(userId)}`);
 
     // -----------------------------------------------------------------------
     // Auto-join all team rooms for this user.

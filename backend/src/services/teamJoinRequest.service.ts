@@ -1,7 +1,7 @@
 import { AppError } from '../middleware/error.middleware';
 import * as teamRepo from '../repositories/team.repository';
 import * as joinRepo from '../repositories/teamJoinRequest.repository';
-import { emitToTeam } from '../websocket/emit';
+import { emitToTeam, emitToUser } from '../websocket/emit';
 import { WS_EVENTS } from '../websocket/events';
 import type { UpdateJoinRequestInput } from '../validators/teamJoinRequest.validator';
 
@@ -107,10 +107,27 @@ export async function updateJoinRequest(
       role: 'MEMBER',
     });
 
+    // Notify the requester directly (they are NOT in the team room yet)
+    emitToUser(userId, WS_EVENTS.TEAM_JOIN_REQUEST_UPDATED, {
+      teamId,
+      requestId,
+      userId,
+      status: 'APPROVED',
+    });
+
     return request;
   } else {
     // Rejection: simple status update, no team_members change
     const request = await joinRepo.rejectRequest(requestId, teamId);
+
+    // Notify the requester that their request was rejected
+    emitToUser(existingReq.user_id, WS_EVENTS.TEAM_JOIN_REQUEST_UPDATED, {
+      teamId,
+      requestId,
+      userId: existingReq.user_id,
+      status: 'REJECTED',
+    });
+
     return request;
   }
 }

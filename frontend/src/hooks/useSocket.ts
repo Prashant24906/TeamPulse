@@ -67,6 +67,23 @@ export function useSocket() {
       qc.invalidateQueries({ queryKey: ['join-requests', payload.teamId] });
     });
 
+    // Join request approved or rejected — notify the requester
+    socket.on('team.join_request_updated', (payload: {
+      teamId: string;
+      requestId: string;
+      userId: string;
+      status: 'APPROVED' | 'REJECTED';
+    }) => {
+      // Refresh the search results so the button state reflects the new status
+      qc.invalidateQueries({ queryKey: ['team-search'] });
+
+      if (payload.status === 'APPROVED') {
+        // The user is now a team member — pull in the updated teams list
+        // so the sidebar and Teams page reflect the new membership immediately
+        qc.invalidateQueries({ queryKey: ['teams'] });
+      }
+    });
+
     // Team deleted — remove from cache immediately; redirect if currently viewing it
     socket.on('team.deleted', (payload: { teamId: string }) => {
       // Surgically remove the deleted team from the list cache
@@ -118,6 +135,7 @@ export function useSocket() {
       socket.off('team.member_added');
       socket.off('team.member_removed');
       socket.off('team.join_request_created');
+      socket.off('team.join_request_updated');
       socket.off('team.deleted');
       socket.off('message.created');
       disconnectSocket();
