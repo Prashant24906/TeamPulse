@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { connectSocket, disconnectSocket, getSocket } from '@/lib/socket';
 import type { TeamMessage } from '@/types/message';
+import type { Team } from '@/types/team';
 
 // ---------------------------------------------------------------------------
 // useSocket — manages Socket.IO lifecycle for a protected page
@@ -18,6 +20,8 @@ import type { TeamMessage } from '@/types/message';
 
 export function useSocket() {
   const qc = useQueryClient();
+  const router   = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     connectSocket();
@@ -63,6 +67,22 @@ export function useSocket() {
       qc.invalidateQueries({ queryKey: ['join-requests', payload.teamId] });
     });
 
+    // Team deleted — remove from cache immediately; redirect if currently viewing it
+    socket.on('team.deleted', (payload: { teamId: string }) => {
+      // Surgically remove the deleted team from the list cache
+      qc.setQueryData<Team[]>(['teams'], (old) =>
+        old ? old.filter((t) => t.id !== payload.teamId) : old
+      );
+      // Remove the per-team cache entries too
+      qc.removeQueries({ queryKey: ['team', payload.teamId] });
+      qc.removeQueries({ queryKey: ['team-members', payload.teamId] });
+
+      // Redirect any member who is currently inside the deleted team's pages
+      if (pathname?.startsWith(`/teams/${payload.teamId}`)) {
+        router.replace('/teams');
+      }
+    });
+
     // Chat — append new message directly to the cache (no extra HTTP request).
     // Deduplication prevents doubles when the sender's own useSendMessage
     // mutation has already appended the same message.
@@ -98,8 +118,9 @@ export function useSocket() {
       socket.off('team.member_added');
       socket.off('team.member_removed');
       socket.off('team.join_request_created');
+      socket.off('team.deleted');
       socket.off('message.created');
       disconnectSocket();
     };
-  }, [qc]);
+  }, [qc, router, pathname]);
 }

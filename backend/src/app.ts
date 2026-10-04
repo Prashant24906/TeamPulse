@@ -9,6 +9,7 @@ import authRouter    from './routes/auth.routes';
 import teamRouter    from './routes/team.routes';
 import projectRouter from './routes/project.routes';
 import taskRouter    from './routes/task.routes';
+import userRouter    from './routes/user.routes';
 import { apiRateLimit } from './middleware/rateLimit.middleware';
 
 const app = express();
@@ -66,6 +67,7 @@ app.use('/api/auth',     authRouter);
 app.use('/api/teams',    teamRouter);
 app.use('/api/projects', projectRouter);
 app.use('/api/tasks',    taskRouter);
+app.use('/api/users',    userRouter);
 
 // ---------------------------------------------------------------------------
 // 404 + error handlers — must be last

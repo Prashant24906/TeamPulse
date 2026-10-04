@@ -55,3 +55,24 @@ export function useLogout() {
     },
   });
 }
+
+export function useUpdateProfile() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: { name?: string; username?: string }) => {
+      const res = await api.patch<AuthResponse>('/users/me', data);
+      return res.data.data.user;
+    },
+    onSuccess: (user) => {
+      queryClient.setQueryData(['me'], user);
+    },
+  });
+}
+
+export function useChangePassword() {
+  return useMutation({
+    mutationFn: async (data: { currentPassword: string; newPassword: string }) => {
+      await api.post('/users/me/change-password', data);
+    },
+  });
+}

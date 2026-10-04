@@ -58,7 +58,7 @@ export async function login(input: LoginInput) {
   const isEmail = input.email.includes('@');
   const user = isEmail
     ? await userRepo.findByEmail(input.email.toLowerCase())
-    : await userRepo.findByUsername(input.email.toLowerCase());
+    : await userRepo.findByUsernameWithHash(input.email.toLowerCase());
 
   if (!user) {
     // Same error as wrong password — avoids user enumeration

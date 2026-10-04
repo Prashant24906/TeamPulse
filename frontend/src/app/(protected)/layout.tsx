@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth, useLogout } from '@/hooks/useAuth';
 import { useSocket } from '@/hooks/useSocket';
-import { LayoutDashboard, Users, LogOut, Loader2, Search } from 'lucide-react';
+import { LayoutDashboard, Users, LogOut, Loader2, Search, UserCircle } from 'lucide-react';
 
 function Sidebar() {
   const logout = useLogout();
@@ -14,7 +14,8 @@ function Sidebar() {
   const navItems = [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/teams',     label: 'Teams',     icon: Users },
-    { href: '/search',     label: 'Search',     icon: Search },
+    { href: '/search',   label: 'Search',    icon: Search },
+    { href: '/profile',  label: 'Profile',   icon: UserCircle },
   ];
 
   return (
