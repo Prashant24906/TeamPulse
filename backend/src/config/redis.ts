@@ -31,6 +31,8 @@ export async function connectRedis(): Promise<void> {
     enableReadyCheck: true,
     commandTimeout: 500,          // 500ms max per command — prevents request hangs
     retryStrategy: () => null,    // disable auto-reconnect (server is down, don't spam)
+    // Required for Redis Cloud (rediss:// URL uses TLS)
+    tls: env.REDIS_URL.startsWith('rediss://') ? {} : undefined,
   });
 
   redisClient.on('connect', () => {
