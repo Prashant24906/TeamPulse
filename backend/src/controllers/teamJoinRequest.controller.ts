@@ -40,7 +40,7 @@ export async function createJoinRequest(
   try {
     const request = await joinService.createJoinRequest(
       req.user!.userId,
-      req.params.teamId
+      req.params.teamId as string
     );
     res.status(201).json({ status: 'success', data: { request } });
   } catch (err) {
@@ -60,7 +60,7 @@ export async function getJoinRequests(
   try {
     const requests = await joinService.getJoinRequests(
       req.user!.userId,
-      req.params.teamId
+      req.params.teamId as string
     );
     res.status(200).json({ status: 'success', data: { requests } });
   } catch (err) {
@@ -85,8 +85,8 @@ export async function updateJoinRequest(
 
     const request = await joinService.updateJoinRequest(
       req.user!.userId,
-      req.params.teamId,
-      req.params.requestId,
+      req.params.teamId as string,
+      req.params.requestId as string,
       result.data
     );
     res.status(200).json({ status: 'success', data: { request } });
@@ -94,3 +94,4 @@ export async function updateJoinRequest(
     next(err);
   }
 }
+

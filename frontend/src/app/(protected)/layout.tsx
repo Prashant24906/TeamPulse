@@ -13,9 +13,9 @@ function Sidebar() {
 
   const navItems = [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { href: '/teams',     label: 'Teams',     icon: Users },
-    { href: '/search',   label: 'Search',    icon: Search },
-    { href: '/profile',  label: 'Profile',   icon: UserCircle },
+    { href: '/projects',  label: 'Projects',  icon: Users },
+    { href: '/search',    label: 'Search',    icon: Search },
+    { href: '/profile',   label: 'Profile',   icon: UserCircle },
   ];
 
   return (

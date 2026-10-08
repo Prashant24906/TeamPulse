@@ -57,7 +57,7 @@ export async function getTeam(
   next: NextFunction
 ): Promise<void> {
   try {
-    const team = await teamService.getTeam(req.user!.userId, req.params.teamId);
+    const team = await teamService.getTeam(req.user!.userId, req.params.teamId as string);
     res.status(200).json({ status: 'success', data: { team } });
   } catch (err) {
     next(err);
@@ -79,7 +79,7 @@ export async function updateTeam(
       return next(new AppError(400, 'Validation failed', result.error.flatten().fieldErrors));
     }
 
-    const team = await teamService.updateTeam(req.user!.userId, req.params.teamId, result.data);
+    const team = await teamService.updateTeam(req.user!.userId, req.params.teamId as string, result.data);
     res.status(200).json({ status: 'success', data: { team } });
   } catch (err) {
     next(err);
@@ -96,7 +96,7 @@ export async function deleteTeam(
   next: NextFunction
 ): Promise<void> {
   try {
-    await teamService.deleteTeam(req.user!.userId, req.params.teamId);
+    await teamService.deleteTeam(req.user!.userId, req.params.teamId as string);
     res.status(204).send();
   } catch (err) {
     next(err);
@@ -113,7 +113,7 @@ export async function getMembers(
   next: NextFunction
 ): Promise<void> {
   try {
-    const members = await teamService.getMembers(req.user!.userId, req.params.teamId);
+    const members = await teamService.getMembers(req.user!.userId, req.params.teamId as string);
     res.status(200).json({ status: 'success', data: { members } });
   } catch (err) {
     next(err);
@@ -135,7 +135,7 @@ export async function addMember(
       return next(new AppError(400, 'Validation failed', result.error.flatten().fieldErrors));
     }
 
-    const member = await teamService.addMember(req.user!.userId, req.params.teamId, result.data);
+    const member = await teamService.addMember(req.user!.userId, req.params.teamId as string, result.data);
     res.status(201).json({ status: 'success', data: { member } });
   } catch (err) {
     next(err);
@@ -159,8 +159,8 @@ export async function updateMemberRole(
 
     const member = await teamService.updateMemberRole(
       req.user!.userId,
-      req.params.teamId,
-      req.params.userId,
+      req.params.teamId as string,
+      req.params.userId as string,
       result.data
     );
     res.status(200).json({ status: 'success', data: { member } });
@@ -179,9 +179,10 @@ export async function removeMember(
   next: NextFunction
 ): Promise<void> {
   try {
-    await teamService.removeMember(req.user!.userId, req.params.teamId, req.params.userId);
+    await teamService.removeMember(req.user!.userId, req.params.teamId as string, req.params.userId as string);
     res.status(204).send();
   } catch (err) {
     next(err);
   }
 }
+

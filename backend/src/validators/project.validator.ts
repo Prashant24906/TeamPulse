@@ -18,11 +18,10 @@ export const createProjectSchema = z.object({
 
 export const updateProjectSchema = z
   .object({
-    name:   z.string().trim().min(2).max(100).optional(),
-    status: z.enum(['ACTIVE', 'ARCHIVED']).optional(),
+    name: z.string().trim().min(2).max(100).optional(),
   })
-  .refine((d) => d.name !== undefined || d.status !== undefined, {
-    message: 'Provide at least one field to update (name or status)',
+  .refine((d) => d.name !== undefined, {
+    message: 'Provide at least one field to update (name)',
   });
 
 export type CreateProjectInput = z.infer<typeof createProjectSchema>;

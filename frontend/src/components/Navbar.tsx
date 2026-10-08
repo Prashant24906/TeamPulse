@@ -33,11 +33,11 @@ export default function Navbar() {
                 Dashboard
               </Link>
               <Link
-                href="/teams"
+                href="/projects"
                 className="flex items-center gap-1.5 hover:text-gray-900 transition-colors"
               >
                 <Users size={14} />
-                Teams
+                Projects
               </Link>
             </>
           )}

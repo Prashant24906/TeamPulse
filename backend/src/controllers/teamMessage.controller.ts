@@ -23,7 +23,7 @@ export async function getMessages(
 
     const messages = await messageService.getMessages(
       req.user!.userId,
-      req.params.teamId,
+      req.params.teamId as string,
       result.data
     );
     res.status(200).json({ status: 'success', data: { messages } });
@@ -49,7 +49,7 @@ export async function sendMessage(
 
     const message = await messageService.sendMessage(
       req.user!.userId,
-      req.params.teamId,
+      req.params.teamId as string,
       result.data
     );
     res.status(201).json({ status: 'success', data: { message } });
@@ -57,3 +57,4 @@ export async function sendMessage(
     next(err);
   }
 }
+

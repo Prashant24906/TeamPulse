@@ -2,7 +2,6 @@ import { Router } from 'express';
 import { authenticate } from '../middleware/auth.middleware';
 import { rateLimit } from '../middleware/rateLimit.middleware';
 import * as teamController     from '../controllers/team.controller';
-import * as projectController  from '../controllers/project.controller';
 import * as joinController     from '../controllers/teamJoinRequest.controller';
 import * as messageController  from '../controllers/teamMessage.controller';
 
@@ -14,7 +13,6 @@ router.use(authenticate);
 // ---------------------------------------------------------------------------
 // Team search — MUST be registered before /:teamId so Express does not
 // interpret the literal string "search" as a teamId parameter.
-// Tighter rate limit (30 req/min) to protect the ILIKE query.
 // ---------------------------------------------------------------------------
 
 router.get(
@@ -24,10 +22,9 @@ router.get(
 );
 
 // ---------------------------------------------------------------------------
-// Team CRUD
+// Team CRUD (direct by teamId — kept for backward compat / standalone use)
 // ---------------------------------------------------------------------------
 
-router.post('/',          teamController.createTeam);
 router.get('/',           teamController.getMyTeams);
 router.get('/:teamId',    teamController.getTeam);
 router.patch('/:teamId',  teamController.updateTeam);
@@ -37,10 +34,10 @@ router.delete('/:teamId', teamController.deleteTeam);
 // Member management
 // ---------------------------------------------------------------------------
 
-router.get('/:teamId/members',           teamController.getMembers);
-router.post('/:teamId/members',          teamController.addMember);
-router.patch('/:teamId/members/:userId', teamController.updateMemberRole);
-router.delete('/:teamId/members/:userId',teamController.removeMember);
+router.get('/:teamId/members',            teamController.getMembers);
+router.post('/:teamId/members',           teamController.addMember);
+router.patch('/:teamId/members/:userId',  teamController.updateMemberRole);
+router.delete('/:teamId/members/:userId', teamController.removeMember);
 
 // ---------------------------------------------------------------------------
 // Join requests
@@ -51,14 +48,7 @@ router.get('/:teamId/join-requests',                       joinController.getJoi
 router.patch('/:teamId/join-requests/:requestId',          joinController.updateJoinRequest);
 
 // ---------------------------------------------------------------------------
-// Projects (team-scoped)
-// ---------------------------------------------------------------------------
-
-router.post('/:teamId/projects', projectController.createProject);
-router.get('/:teamId/projects',  projectController.getProjectsByTeam);
-
-// ---------------------------------------------------------------------------
-// Chat messages — any team member can read and send
+// Chat messages
 // ---------------------------------------------------------------------------
 
 router.get('/:teamId/messages',  messageController.getMessages);

@@ -64,9 +64,9 @@ app.get('/health', async (_req: Request, res: Response, next: NextFunction) => {
 // ---------------------------------------------------------------------------
 app.use('/api', apiRateLimit);
 app.use('/api/auth',     authRouter);
-app.use('/api/teams',    teamRouter);
-app.use('/api/projects', projectRouter);
-app.use('/api/tasks',    taskRouter);
+app.use('/api/projects', projectRouter);   // NEW: primary API root
+app.use('/api/teams',    teamRouter);      // kept for search + direct team access
+app.use('/api/tasks',    taskRouter);      // standalone task routes (PATCH/DELETE by taskId)
 app.use('/api/users',    userRouter);
 
 // ---------------------------------------------------------------------------

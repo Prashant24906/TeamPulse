@@ -4,7 +4,7 @@ import { AppError } from '../middleware/error.middleware';
 import { createTaskSchema, updateTaskSchema } from '../validators/task.validator';
 
 // ---------------------------------------------------------------------------
-// POST /api/projects/:projectId/tasks
+// POST /api/projects/:projectId/teams/:teamId/tasks
 // ---------------------------------------------------------------------------
 
 export async function createTask(
@@ -20,7 +20,7 @@ export async function createTask(
 
     const task = await taskService.createTask(
       req.user!.userId,
-      req.params.projectId,
+      req.params.teamId as string,
       result.data
     );
     res.status(201).json({ status: 'success', data: { task } });
@@ -30,18 +30,18 @@ export async function createTask(
 }
 
 // ---------------------------------------------------------------------------
-// GET /api/projects/:projectId/tasks
+// GET /api/projects/:projectId/teams/:teamId/tasks
 // ---------------------------------------------------------------------------
 
-export async function getTasksByProject(
+export async function getTasksByTeam(
   req: Request,
   res: Response,
   next: NextFunction
 ): Promise<void> {
   try {
-    const tasks = await taskService.getTasksByProject(
+    const tasks = await taskService.getTasksByTeam(
       req.user!.userId,
-      req.params.projectId
+      req.params.teamId as string
     );
     res.status(200).json({ status: 'success', data: { tasks } });
   } catch (err) {
@@ -59,7 +59,7 @@ export async function getTask(
   next: NextFunction
 ): Promise<void> {
   try {
-    const task = await taskService.getTask(req.user!.userId, req.params.taskId);
+    const task = await taskService.getTask(req.user!.userId, req.params.taskId as string);
     res.status(200).json({ status: 'success', data: { task } });
   } catch (err) {
     next(err);
@@ -83,7 +83,7 @@ export async function updateTask(
 
     const task = await taskService.updateTask(
       req.user!.userId,
-      req.params.taskId,
+      req.params.taskId as string,
       result.data
     );
     res.status(200).json({ status: 'success', data: { task } });
@@ -102,9 +102,10 @@ export async function deleteTask(
   next: NextFunction
 ): Promise<void> {
   try {
-    await taskService.deleteTask(req.user!.userId, req.params.taskId);
+    await taskService.deleteTask(req.user!.userId, req.params.taskId as string);
     res.status(204).send();
   } catch (err) {
     next(err);
   }
 }
+

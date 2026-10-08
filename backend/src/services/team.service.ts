@@ -1,6 +1,7 @@
 import { AppError } from '../middleware/error.middleware';
-import * as teamRepo from '../repositories/team.repository';
-import * as userRepo from '../repositories/user.repository';
+import * as teamRepo    from '../repositories/team.repository';
+import * as projectRepo from '../repositories/project.repository';
+import * as userRepo    from '../repositories/user.repository';
 import type { TeamRole } from '../repositories/team.repository';
 import type {
   CreateTeamInput,
@@ -24,8 +25,17 @@ function hasRole(actual: TeamRole, required: TeamRole): boolean {
 // Create team — creator automatically becomes OWNER
 // ---------------------------------------------------------------------------
 
-export async function createTeam(userId: string, input: CreateTeamInput) {
-  const team = await teamRepo.createTeam(input.name, userId, input.max_size);
+export async function createTeam(
+  userId: string,
+  projectId: string,
+  input: CreateTeamInput
+) {
+  // Caller must be a project OWNER or ADMIN to create a team inside it
+  const projectRole = await projectRepo.findMemberRole(projectId, userId);
+  if (!projectRole) throw new AppError(403, 'You are not a member of this project');
+  if (projectRole === 'MEMBER') throw new AppError(403, 'Only project OWNER or ADMIN can create teams');
+
+  const team = await teamRepo.createTeam(input.name, userId, input.max_size, projectId);
   await teamRepo.addMember(team.id, userId, 'OWNER');
   return team;
 }
@@ -36,6 +46,17 @@ export async function createTeam(userId: string, input: CreateTeamInput) {
 
 export async function getMyTeams(userId: string) {
   return teamRepo.findTeamsByUserId(userId);
+}
+
+// ---------------------------------------------------------------------------
+// Get teams by project — any project member
+// ---------------------------------------------------------------------------
+
+export async function getTeamsByProject(userId: string, projectId: string) {
+  const role = await projectRepo.findMemberRole(projectId, userId);
+  if (!role) throw new AppError(403, 'You are not a member of this project');
+
+  return teamRepo.findTeamsByProjectId(projectId);
 }
 
 // ---------------------------------------------------------------------------

@@ -67,13 +67,15 @@ export function useSocket() {
       // cache and redirect them away from any page belonging to that team.
       const me = qc.getQueryData<User>(['me']);
       if (me && me.id === payload.userId) {
-        qc.setQueryData<Team[]>(['teams'], (old) =>
-          old ? old.filter((t) => t.id !== payload.teamId) : old
+        qc.setQueryData<Team[]>(['projects'], (old: any) =>
+          old ? old.filter((t: any) => t.id !== payload.teamId) : old
         );
         qc.removeQueries({ queryKey: ['team', payload.teamId] });
         qc.removeQueries({ queryKey: ['team-members', payload.teamId] });
-        if (pathname?.startsWith(`/teams/${payload.teamId}`)) {
-          router.replace('/teams');
+        if (pathname?.includes(`/teams/${payload.teamId}`)) {
+          // Go up to project level
+          const match = pathname.match(/\/projects\/([^/]+)/);
+          router.replace(match ? `/projects/${match[1]}` : '/projects');
         }
       }
     });
@@ -93,25 +95,26 @@ export function useSocket() {
       qc.invalidateQueries({ queryKey: ['team-search'] });
 
       if (payload.status === 'APPROVED') {
-        // The user is now a team member — pull in the updated teams list
-        // so the sidebar and Teams page reflect the new membership immediately
-        qc.invalidateQueries({ queryKey: ['teams'] });
+        // The user is now a team member — pull in the updated project-teams list
+        qc.invalidateQueries({ queryKey: ['project-teams'] });
+        qc.invalidateQueries({ queryKey: ['projects'] });
       }
     });
 
     // Team deleted — remove from cache immediately; redirect if currently viewing it
     socket.on('team.deleted', (payload: { teamId: string }) => {
       // Surgically remove the deleted team from the list cache
-      qc.setQueryData<Team[]>(['teams'], (old) =>
-        old ? old.filter((t) => t.id !== payload.teamId) : old
+      qc.setQueryData<Team[]>(['project-teams'], (old: any) =>
+        old ? old.filter((t: any) => t.id !== payload.teamId) : old
       );
       // Remove the per-team cache entries too
       qc.removeQueries({ queryKey: ['team', payload.teamId] });
       qc.removeQueries({ queryKey: ['team-members', payload.teamId] });
 
       // Redirect any member who is currently inside the deleted team's pages
-      if (pathname?.startsWith(`/teams/${payload.teamId}`)) {
-        router.replace('/teams');
+      if (pathname?.includes(`/teams/${payload.teamId}`)) {
+        const match = pathname.match(/\/projects\/([^/]+)/);
+        router.replace(match ? `/projects/${match[1]}` : '/projects');
       }
     });
 

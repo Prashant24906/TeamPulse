@@ -11,7 +11,7 @@ export interface Task {
   id: string;
   name: string;
   description: string | null;
-  project_id: string;
+  team_id: string;
   created_by: string;
   assigned_to: string | null;
   status: TaskStatus;
@@ -27,7 +27,7 @@ export interface Task {
 export async function createTask(fields: {
   name: string;
   description?: string;
-  project_id: string;
+  team_id: string;
   created_by: string;
   assigned_to?: string;
   status: TaskStatus;
@@ -35,11 +35,11 @@ export async function createTask(fields: {
   due_date?: string;
 }): Promise<Task> {
   const rows = await sql<Task[]>`
-    INSERT INTO tasks (name, description, project_id, created_by, assigned_to, status, priority, due_date)
+    INSERT INTO tasks (name, description, team_id, created_by, assigned_to, status, priority, due_date)
     VALUES (
       ${fields.name},
       ${fields.description ?? null},
-      ${fields.project_id},
+      ${fields.team_id},
       ${fields.created_by},
       ${fields.assigned_to ?? null},
       ${fields.status},
@@ -58,10 +58,10 @@ export async function findTaskById(taskId: string): Promise<Task | null> {
   return rows[0] ?? null;
 }
 
-export async function findTasksByProjectId(projectId: string): Promise<Task[]> {
+export async function findTasksByTeamId(teamId: string): Promise<Task[]> {
   return sql<Task[]>`
     SELECT * FROM tasks
-     WHERE project_id = ${projectId}
+     WHERE team_id = ${teamId}
      ORDER BY created_at DESC
   `;
 }
@@ -81,16 +81,16 @@ export async function updateTask(
     UPDATE tasks
        SET name        = COALESCE(${fields.name        ?? null}, name),
            description = CASE WHEN ${fields.description !== undefined}::boolean
-                              THEN ${fields.description ?? null}
-                              ELSE description END,
+                               THEN ${fields.description ?? null}
+                               ELSE description END,
            assigned_to = CASE WHEN ${fields.assigned_to !== undefined}::boolean
-                              THEN ${fields.assigned_to ?? null}
-                              ELSE assigned_to END,
+                               THEN ${fields.assigned_to ?? null}
+                               ELSE assigned_to END,
            status      = COALESCE(${fields.status   ?? null}, status),
            priority    = COALESCE(${fields.priority ?? null}, priority),
            due_date    = CASE WHEN ${fields.due_date !== undefined}::boolean
-                              THEN ${fields.due_date ?? null}
-                              ELSE due_date END
+                               THEN ${fields.due_date ?? null}
+                               ELSE due_date END
      WHERE id = ${taskId}
     RETURNING *
   `;

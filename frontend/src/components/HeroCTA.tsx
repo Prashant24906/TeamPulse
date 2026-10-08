@@ -19,10 +19,10 @@ export default function HeroCTA() {
           Go to Dashboard <ArrowRight size={16} />
         </Link>
         <Link
-          href="/teams"
+          href="/projects"
           className="flex items-center gap-2 border border-gray-300 hover:border-gray-400 bg-white text-gray-700 font-semibold px-7 py-3.5 rounded-xl transition-all hover:bg-gray-50"
         >
-          View Teams
+          View Projects
         </Link>
       </div>
     );

@@ -9,6 +9,7 @@ export type TeamRole = 'OWNER' | 'ADMIN' | 'MEMBER';
 export interface Team {
   id: string;
   name: string;
+  project_id: string;
   created_by: string;
   max_size: number;
   created_at: Date;
@@ -37,11 +38,12 @@ export interface TeamWithRole extends Team {
 export async function createTeam(
   name: string,
   createdBy: string,
-  maxSize: number
+  maxSize: number,
+  projectId: string
 ): Promise<Team> {
   const rows = await sql<Team[]>`
-    INSERT INTO teams (name, created_by, max_size)
-    VALUES (${name}, ${createdBy}, ${maxSize})
+    INSERT INTO teams (name, created_by, max_size, project_id)
+    VALUES (${name}, ${createdBy}, ${maxSize}, ${projectId})
     RETURNING *
   `;
   return rows[0];
@@ -52,6 +54,15 @@ export async function findTeamById(teamId: string): Promise<Team | null> {
     SELECT * FROM teams WHERE id = ${teamId} LIMIT 1
   `;
   return rows[0] ?? null;
+}
+
+export async function findTeamsByProjectId(projectId: string): Promise<Team[]> {
+  return sql<Team[]>`
+    SELECT *
+      FROM teams
+     WHERE project_id = ${projectId}
+     ORDER BY created_at DESC
+  `;
 }
 
 export async function findTeamsByUserId(userId: string): Promise<TeamWithRole[]> {

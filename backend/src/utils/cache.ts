@@ -70,6 +70,7 @@ export async function cacheInvalidate(...keys: string[]): Promise<void> {
 // ---------------------------------------------------------------------------
 
 export const CacheKeys = {
-  team:    (teamId: string)    => `team:${teamId}`,
   project: (projectId: string) => `project:${projectId}`,
+  team:    (teamId: string)    => `team:${teamId}`,
+  tasks:   (teamId: string)    => `tasks:${teamId}`,
 } as const;

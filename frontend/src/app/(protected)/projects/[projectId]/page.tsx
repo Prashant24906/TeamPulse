@@ -1,21 +1,19 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, use } from 'react';
 import Link from 'next/link';
-import { useTeams, useCreateTeam, useDeleteTeam } from '@/hooks/useTeams';
-import { useTeamSearch, useCreateJoinRequest } from '@/hooks/useTeamDiscovery';
+import { useRouter } from 'next/navigation';
+import { useProject, useProjectTeams, useCreateTeam, useDeleteProject } from '@/hooks/useProjects';
+import { useAuth } from '@/hooks/useAuth';
 import {
-  Users, Plus, Trash2, ChevronRight, Loader2, AlertCircle,
-  X, Search, CheckCircle, Clock,
+  ArrowLeft, Users, Plus, Trash2, ChevronRight, Loader2, AlertCircle, X, FolderOpen,
 } from 'lucide-react';
 import type { TeamRole } from '@/types/team';
-import type { TeamSearchResult } from '@/types/joinRequest';
 import { z } from 'zod';
 
-const createTeamSchema = z.object({
-  name:     z.string().min(2, 'Name must be at least 2 characters'),
-  max_size: z.coerce.number().int().min(2).max(100).default(10),
-});
+// ---------------------------------------------------------------------------
+// Styles
+// ---------------------------------------------------------------------------
 
 const ROLE_COLORS: Record<TeamRole, string> = {
   OWNER:  'text-amber-700 bg-amber-50 border border-amber-200',
@@ -23,12 +21,17 @@ const ROLE_COLORS: Record<TeamRole, string> = {
   MEMBER: 'text-gray-600 bg-gray-100 border border-gray-200',
 };
 
+const createTeamSchema = z.object({
+  name:     z.string().min(2, 'Name must be at least 2 characters').max(100),
+  max_size: z.coerce.number().int().min(2).max(100).default(10),
+});
+
 // ---------------------------------------------------------------------------
-// CreateTeamModal
+// Create team modal (within project)
 // ---------------------------------------------------------------------------
 
-function CreateTeamModal({ onClose }: { onClose: () => void }) {
-  const createTeam = useCreateTeam();
+function CreateTeamModal({ projectId, onClose }: { projectId: string; onClose: () => void }) {
+  const createTeam = useCreateTeam(projectId);
   const [form, setForm]     = useState({ name: '', max_size: '10' });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -72,6 +75,7 @@ function CreateTeamModal({ onClose }: { onClose: () => void }) {
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               className="w-full rounded-lg bg-white border border-gray-300 px-4 py-2.5 text-gray-900 placeholder-gray-400 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition"
               placeholder="e.g. Backend Team"
+              autoFocus
             />
             {errors.name && <p className="mt-1 text-xs text-red-500">{errors.name}</p>}
           </div>
@@ -107,69 +111,108 @@ function CreateTeamModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-
 // ---------------------------------------------------------------------------
-// TeamsPage
+// ProjectDetailPage
 // ---------------------------------------------------------------------------
 
-export default function TeamsPage() {
-  const { data: teams, isLoading, isError, refetch } = useTeams();
-  const deleteTeam = useDeleteTeam();
-  const [showCreate, setShowCreate] = useState(false);
-  const [showSearch, setShowSearch] = useState(false);
+export default function ProjectDetailPage({ params }: { params: Promise<{ projectId: string }> }) {
+  const { projectId } = use(params);
+  const router = useRouter();
+  const { data: user } = useAuth();
+  const { data: project, isLoading: projectLoading, isError: projectError } = useProject(projectId);
+  const { data: teams,   isLoading: teamsLoading,   isError: teamsError }   = useProjectTeams(projectId);
+  const deleteProject = useDeleteProject();
+
+  const [showCreateTeam, setShowCreateTeam] = useState(false);
+
+  const isOwner = project?.role === 'OWNER';
+
+  const handleDeleteProject = async () => {
+    if (!confirm(`Delete project "${project?.name}"? This removes all teams and tasks.`)) return;
+    await deleteProject.mutateAsync(projectId);
+    router.push('/projects');
+  };
+
+  if (projectLoading) {
+    return (
+      <div className="flex items-center gap-2 text-gray-400 py-12 justify-center">
+        <Loader2 className="animate-spin" size={20} /><span>Loading project…</span>
+      </div>
+    );
+  }
+
+  if (projectError || !project) {
+    return (
+      <div className="flex flex-col items-center gap-3 text-gray-500 py-12">
+        <AlertCircle size={24} className="text-red-400" />
+        <p className="text-sm">Project not found or access denied.</p>
+        <Link href="/projects" className="text-sm text-emerald-600 hover:underline">Back to Projects</Link>
+      </div>
+    );
+  }
 
   return (
     <div className="p-8">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Teams</h1>
-          <p className="mt-1 text-gray-500 text-sm">Manage your teams and members.</p>
+      {/* Header */}
+      <div className="flex items-center gap-3 mb-2">
+        <Link href="/projects" className="text-gray-400 hover:text-gray-700 transition">
+          <ArrowLeft size={18} />
+        </Link>
+        <div className="h-9 w-9 rounded-lg bg-emerald-50 flex items-center justify-center">
+          <FolderOpen size={16} className="text-emerald-600" />
+        </div>
+        <div className="flex-1">
+          <h1 className="text-xl font-bold text-gray-900">{project.name}</h1>
         </div>
         <div className="flex items-center gap-2">
           <button
-            id="open-search-teams"
-            onClick={() => setShowSearch(true)}
-            className="flex items-center gap-2 border border-gray-200 hover:border-gray-300 text-gray-600 hover:text-gray-900 text-sm font-medium px-4 py-2.5 rounded-lg bg-white hover:bg-gray-50 transition"
+            id="create-team-btn"
+            onClick={() => setShowCreateTeam(true)}
+            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold px-4 py-2 rounded-lg transition"
           >
-            <Search size={15} /> Search Teams
+            <Plus size={15} /> New Team
           </button>
-          <button
-            id="open-create-team"
-            onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition"
-          >
-            <Plus size={16} /> New Team
-          </button>
+          {isOwner && (
+            <button
+              id="delete-project-btn"
+              onClick={handleDeleteProject}
+              className="text-gray-400 hover:text-red-500 transition p-2 rounded-lg hover:bg-red-50"
+              title="Delete project"
+            >
+              <Trash2 size={16} />
+            </button>
+          )}
         </div>
       </div>
 
-      {isLoading && (
+      <p className="text-gray-500 text-sm ml-12 mb-8">
+        Your role: <span className="font-medium text-gray-700">{project.role}</span>
+      </p>
+
+      {/* Teams grid */}
+      {teamsLoading && (
         <div className="flex items-center gap-2 text-gray-400 py-12 justify-center">
           <Loader2 className="animate-spin" size={20} /><span>Loading teams…</span>
         </div>
       )}
 
-      {isError && (
-        <div className="flex flex-col items-center gap-3 text-gray-500 py-12">
-          <AlertCircle size={24} className="text-red-400" />
-          <p className="text-sm">Unable to load teams.</p>
-          <button onClick={() => refetch()} className="text-sm text-emerald-600 hover:underline">Retry</button>
-        </div>
+      {teamsError && (
+        <div className="text-center py-12 text-gray-500 text-sm">Unable to load teams.</div>
       )}
 
-      {!isLoading && !isError && teams?.length === 0 && (
+      {!teamsLoading && !teamsError && teams?.length === 0 && (
         <div className="flex flex-col items-center gap-3 py-16 text-gray-400">
           <Users size={36} className="text-gray-300" />
-          <p className="text-sm">No teams yet. Create one or search for a team to join.</p>
+          <p className="text-sm">No teams yet. Create the first one.</p>
         </div>
       )}
 
-      {!isLoading && teams && teams.length > 0 && (
+      {!teamsLoading && teams && teams.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {teams.map((team) => (
             <div key={team.id} className="relative group">
               <Link
-                href={`/teams/${team.id}`}
+                href={`/projects/${projectId}/teams/${team.id}`}
                 id={`team-card-${team.id}`}
                 className="block bg-white border border-gray-200 rounded-xl p-5 hover:border-emerald-300 hover:shadow-md hover:shadow-emerald-50 transition-all"
               >
@@ -184,30 +227,18 @@ export default function TeamsPage() {
                 <h3 className="text-gray-900 font-semibold group-hover:text-emerald-600 transition-colors">
                   {team.name}
                 </h3>
-                <p className="text-gray-400 text-xs mt-1">Max {team.max_size} members</p>
+                <p className="text-gray-400 text-xs mt-1 flex items-center gap-1">
+                  Max {team.max_size} members <ChevronRight size={12} />
+                </p>
               </Link>
-
-              {/* Delete button — owner/admin only, appears on card hover */}
-              {(team.role === 'OWNER' || team.role === 'ADMIN') && (
-                <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    if (confirm(`Delete "${team.name}"?`)) deleteTeam.mutate(team.id);
-                  }}
-                  id={`delete-team-${team.id}`}
-                  className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition p-1.5 rounded"
-                  title="Delete team"
-                >
-                  <Trash2 size={14} />
-                </button>
-              )}
             </div>
           ))}
         </div>
       )}
 
-      {showCreate && <CreateTeamModal onClose={() => setShowCreate(false)} />}
-
+      {showCreateTeam && (
+        <CreateTeamModal projectId={projectId} onClose={() => setShowCreateTeam(false)} />
+      )}
     </div>
   );
 }
