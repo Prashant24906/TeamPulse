@@ -82,14 +82,26 @@ export function rateLimit({
 // Pre-configured limiters for specific route groups
 // ---------------------------------------------------------------------------
 
-/**
- * Strict limit for auth endpoints (login, register).
- * 10 requests per minute per IP.
- */
-export const authRateLimit = rateLimit({ window: 60, max: 10, prefix: 'rl:auth' });
+const isDev = process.env.NODE_ENV !== 'production';
 
 /**
- * Standard limit for general API endpoints.
- * 60 requests per minute per IP.
+ * Auth endpoints (login, register).
+ * Dev: 100/min  — testing with multiple accounts won't hit the wall.
+ * Prod: 10/min  — brute-force protection.
  */
-export const apiRateLimit = rateLimit({ window: 60, max: 60, prefix: 'rl:api' });
+export const authRateLimit = rateLimit({
+  window: 60,
+  max:    isDev ? 100 : 10,
+  prefix: 'rl:auth',
+});
+
+/**
+ * General API endpoints.
+ * Dev: 500/min  — hot reload + two tabs + WS polling won't trigger 429.
+ * Prod: 120/min — reasonable for real users.
+ */
+export const apiRateLimit = rateLimit({
+  window: 60,
+  max:    isDev ? 500 : 120,
+  prefix: 'rl:api',
+});

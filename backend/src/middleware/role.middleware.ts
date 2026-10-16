@@ -37,7 +37,7 @@ export function requireTeamRole(...allowed: TeamRole[]) {
     next: NextFunction
   ): Promise<void> => {
     try {
-      const { teamId } = req.params;
+      const teamId = req.params.teamId as string;
       const userId = req.user!.userId;
 
       const role = await teamRepo.findMemberRole(teamId, userId);

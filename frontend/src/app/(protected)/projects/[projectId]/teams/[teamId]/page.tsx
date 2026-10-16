@@ -25,30 +25,30 @@ import { z } from 'zod';
 // ---------------------------------------------------------------------------
 
 const COLUMNS: { status: TaskStatus; label: string; color: string; bg: string }[] = [
-  { status: 'TODO',        label: 'To Do',       color: 'text-gray-500',    bg: 'bg-gray-50' },
-  { status: 'IN_PROGRESS', label: 'In Progress', color: 'text-amber-600',   bg: 'bg-amber-50' },
-  { status: 'COMPLETED',   label: 'Completed',   color: 'text-emerald-600', bg: 'bg-emerald-50' },
+  { status: 'TODO', label: 'To Do', color: 'text-gray-500', bg: 'bg-gray-50' },
+  { status: 'IN_PROGRESS', label: 'In Progress', color: 'text-amber-600', bg: 'bg-amber-50' },
+  { status: 'COMPLETED', label: 'Completed', color: 'text-emerald-600', bg: 'bg-emerald-50' },
 ];
 
 const PRIORITY_COLORS: Record<TaskPriority, string> = {
-  HIGH:   'text-red-500   bg-red-50   border-red-200',
+  HIGH: 'text-red-500   bg-red-50   border-red-200',
   MEDIUM: 'text-amber-500 bg-amber-50 border-amber-200',
-  LOW:    'text-gray-400  bg-gray-100 border-gray-200',
+  LOW: 'text-gray-400  bg-gray-100 border-gray-200',
 };
 
 const ROLE_COLORS: Record<TeamRole, string> = {
-  OWNER:  'text-amber-400 bg-amber-400/10 border-amber-400/20',
-  ADMIN:  'text-sky-400   bg-sky-400/10   border-sky-400/20',
+  OWNER: 'text-amber-400 bg-amber-400/10 border-amber-400/20',
+  ADMIN: 'text-sky-400   bg-sky-400/10   border-sky-400/20',
   MEMBER: 'text-gray-400  bg-gray-400/10  border-gray-700',
 };
 
 const taskSchema = z.object({
-  name:        z.string().min(1, 'Name is required'),
+  name: z.string().min(1, 'Name is required'),
   description: z.string().optional(),
-  priority:    z.enum(['LOW', 'MEDIUM', 'HIGH']).default('MEDIUM'),
-  status:      z.enum(['TODO', 'IN_PROGRESS', 'COMPLETED']).default('TODO'),
+  priority: z.enum(['LOW', 'MEDIUM', 'HIGH']).default('MEDIUM'),
+  status: z.enum(['TODO', 'IN_PROGRESS', 'COMPLETED']).default('TODO'),
   assigned_to: z.string().optional(),
-  due_date:    z.string().optional(),
+  due_date: z.string().optional(),
 });
 
 // ---------------------------------------------------------------------------
@@ -69,12 +69,12 @@ function TaskModal({
   const updateTask = useUpdateTask(teamId);
 
   const [form, setForm] = useState({
-    name:        editTask?.name        ?? '',
+    name: editTask?.name ?? '',
     description: editTask?.description ?? '',
-    priority:    (editTask?.priority   ?? 'MEDIUM') as TaskPriority,
-    status:      (editTask?.status     ?? defaultStatus ?? 'TODO') as TaskStatus,
+    priority: (editTask?.priority ?? 'MEDIUM') as TaskPriority,
+    status: (editTask?.status ?? defaultStatus ?? 'TODO') as TaskStatus,
     assigned_to: editTask?.assigned_to ?? '',
-    due_date:    editTask?.due_date ? String(editTask.due_date).slice(0, 10) : '',
+    due_date: editTask?.due_date ? String(editTask.due_date).slice(0, 10) : '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -84,12 +84,12 @@ function TaskModal({
     const parsed = taskSchema.safeParse({
       ...form,
       assigned_to: form.assigned_to || undefined,
-      due_date:    form.due_date ? new Date(form.due_date).toISOString() : undefined,
+      due_date: form.due_date ? new Date(form.due_date).toISOString() : undefined,
     });
     if (!parsed.success) {
-      const fieldErrors = parsed.error.flatten().fieldErrors;
       const fe: Record<string, string> = {};
-      Object.entries(fieldErrors).forEach(([k, v]) => { if (v?.[0]) fe[k] = v[0]; });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      parsed.error.issues.forEach((issue: any) => { if (issue.path[0] != null) fe[String(issue.path[0])] = issue.message; });
       setErrors(fe);
       return;
     }
@@ -194,16 +194,16 @@ export default function TeamDetailPage({
 }) {
   const { projectId, teamId } = use(params);
   const router = useRouter();
-  const { data: user } = useAuth();
+  const { data: currentUser } = useAuth();
 
-  const { data: team,    isLoading: teamLoading }  = useTeam(teamId);
+  const { data: team, isLoading: teamLoading } = useTeam(teamId);
   const { data: members, isLoading: membersLoading } = useTeamMembers(teamId);
-  const { data: tasks,   isLoading: tasksLoading }  = useTasks(projectId, teamId);
+  const { data: tasks, isLoading: tasksLoading } = useTasks(projectId, teamId);
   const { data: joinRequests } = useJoinRequests(teamId);
 
-  const leaveTeam       = useLeaveTeam(teamId);
-  const deleteTask      = useDeleteTask(teamId);
-  const updateJoinReq   = useUpdateJoinRequest(teamId);
+  const leaveTeam = useLeaveTeam(teamId);
+  const deleteTask = useDeleteTask(teamId);
+  const updateJoinReq = useUpdateJoinRequest(teamId);
 
   const [taskModal, setTaskModal] = useState<{
     open: boolean; edit?: Task; defaultStatus?: TaskStatus;
@@ -258,7 +258,7 @@ export default function TeamDetailPage({
               <button
                 onClick={async () => {
                   if (!confirm('Leave this team?')) return;
-                  await leaveTeam.mutateAsync(user!.id);
+                  await leaveTeam.mutateAsync(currentUser!.id);
                   router.push(`/projects/${projectId}`);
                 }}
                 className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-red-600 border border-gray-200 hover:border-red-300 px-3 py-1.5 rounded-lg transition"
@@ -275,11 +275,10 @@ export default function TeamDetailPage({
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-4 py-1.5 rounded-lg text-sm font-medium capitalize transition ${
-                activeTab === tab
+              className={`px-4 py-1.5 rounded-lg text-sm font-medium capitalize transition ${activeTab === tab
                   ? 'bg-emerald-600 text-white'
                   : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
-              }`}
+                }`}
             >
               {tab === 'requests'
                 ? `Requests${joinRequests?.length ? ` (${joinRequests.length})` : ''}`

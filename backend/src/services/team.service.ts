@@ -212,10 +212,7 @@ export async function updateMemberRole(
     throw new AppError(400, 'Cannot change the OWNER\'s role — transfer ownership instead');
   }
 
-  // ADMIN cannot promote anyone to OWNER
-  if (callerRole === 'ADMIN' && input.role === 'OWNER') {
-    throw new AppError(403, 'ADMIN cannot promote members to OWNER');
-  }
+  // OWNER promotion is already blocked by the validator (only ADMIN|MEMBER allowed)
 
   // ADMIN cannot demote another ADMIN
   if (callerRole === 'ADMIN' && targetRole === 'ADMIN') {

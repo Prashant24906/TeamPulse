@@ -6,7 +6,7 @@ import { z } from 'zod';
 
 export const createProjectSchema = z.object({
   name: z
-    .string({ required_error: 'Project name is required' })
+    .string({ error: 'Project name is required' })
     .trim()
     .min(2, 'Name must be at least 2 characters')
     .max(100, 'Name must be at most 100 characters'),
@@ -26,3 +26,4 @@ export const updateProjectSchema = z
 
 export type CreateProjectInput = z.infer<typeof createProjectSchema>;
 export type UpdateProjectInput = z.infer<typeof updateProjectSchema>;
+

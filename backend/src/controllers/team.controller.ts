@@ -17,17 +17,8 @@ export async function createTeam(
   res: Response,
   next: NextFunction
 ): Promise<void> {
-  try {
-    const result = createTeamSchema.safeParse(req.body);
-    if (!result.success) {
-      return next(new AppError(400, 'Validation failed', result.error.flatten().fieldErrors));
-    }
-
-    const team = await teamService.createTeam(req.user!.userId, result.data);
-    res.status(201).json({ status: 'success', data: { team } });
-  } catch (err) {
-    next(err);
-  }
+  // Teams must be created through POST /projects/:projectId/teams
+  return next(new AppError(400, 'Use POST /projects/:projectId/teams to create a team'));
 }
 
 // ---------------------------------------------------------------------------

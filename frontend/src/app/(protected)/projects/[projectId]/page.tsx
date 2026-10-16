@@ -4,9 +4,9 @@ import { useState, use } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useProject, useProjectTeams, useCreateTeam, useDeleteProject } from '@/hooks/useProjects';
-import { useAuth } from '@/hooks/useAuth';
+import { useProjectJoinRequests, useResolveProjectJoinRequest } from '@/hooks/useProjectDiscovery';
 import {
-  ArrowLeft, Users, Plus, Trash2, ChevronRight, Loader2, AlertCircle, X, FolderOpen,
+  ArrowLeft, Users, Plus, Trash2, ChevronRight, Loader2, AlertCircle, X, FolderOpen, Bell, Check, XCircle,
 } from 'lucide-react';
 import type { TeamRole } from '@/types/team';
 import { z } from 'zod';
@@ -118,14 +118,22 @@ function CreateTeamModal({ projectId, onClose }: { projectId: string; onClose: (
 export default function ProjectDetailPage({ params }: { params: Promise<{ projectId: string }> }) {
   const { projectId } = use(params);
   const router = useRouter();
-  const { data: user } = useAuth();
+
+
   const { data: project, isLoading: projectLoading, isError: projectError } = useProject(projectId);
   const { data: teams,   isLoading: teamsLoading,   isError: teamsError }   = useProjectTeams(projectId);
-  const deleteProject = useDeleteProject();
+  const deleteProject  = useDeleteProject();
+
+  // Derive role early so hook conditions can use it
+  const isOwnerOrAdmin = project?.role === 'OWNER' || project?.role === 'ADMIN';
+  const isOwner        = project?.role === 'OWNER';
+
+  const { data: joinRequests } = useProjectJoinRequests(isOwnerOrAdmin ? projectId : '');
+  const resolveJoinReq         = useResolveProjectJoinRequest(projectId);
+  const pendingCount           = joinRequests?.length ?? 0;
 
   const [showCreateTeam, setShowCreateTeam] = useState(false);
-
-  const isOwner = project?.role === 'OWNER';
+  const [activeTab, setActiveTab]           = useState<'teams' | 'requests'>('teams');
 
   const handleDeleteProject = async () => {
     if (!confirm(`Delete project "${project?.name}"? This removes all teams and tasks.`)) return;
@@ -185,54 +193,127 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
         </div>
       </div>
 
-      <p className="text-gray-500 text-sm ml-12 mb-8">
+      <p className="text-gray-500 text-sm ml-12 mb-4">
         Your role: <span className="font-medium text-gray-700">{project.role}</span>
       </p>
 
-      {/* Teams grid */}
-      {teamsLoading && (
-        <div className="flex items-center gap-2 text-gray-400 py-12 justify-center">
-          <Loader2 className="animate-spin" size={20} /><span>Loading teams…</span>
+      {/* Tabs */}
+      {isOwnerOrAdmin && (
+        <div className="flex gap-1 mb-6 border-b border-gray-200">
+          <button
+            onClick={() => setActiveTab('teams')}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition ${
+              activeTab === 'teams'
+                ? 'border-emerald-600 text-emerald-700'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Teams
+          </button>
+          <button
+            onClick={() => setActiveTab('requests')}
+            className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 transition ${
+              activeTab === 'requests'
+                ? 'border-emerald-600 text-emerald-700'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <Bell size={13} />
+            Join Requests
+            {pendingCount > 0 && (
+              <span className="ml-1 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                {pendingCount}
+              </span>
+            )}
+          </button>
         </div>
       )}
 
-      {teamsError && (
-        <div className="text-center py-12 text-gray-500 text-sm">Unable to load teams.</div>
-      )}
-
-      {!teamsLoading && !teamsError && teams?.length === 0 && (
-        <div className="flex flex-col items-center gap-3 py-16 text-gray-400">
-          <Users size={36} className="text-gray-300" />
-          <p className="text-sm">No teams yet. Create the first one.</p>
-        </div>
-      )}
-
-      {!teamsLoading && teams && teams.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {teams.map((team) => (
-            <div key={team.id} className="relative group">
-              <Link
-                href={`/projects/${projectId}/teams/${team.id}`}
-                id={`team-card-${team.id}`}
-                className="block bg-white border border-gray-200 rounded-xl p-5 hover:border-emerald-300 hover:shadow-md hover:shadow-emerald-50 transition-all"
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <div className="h-10 w-10 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0">
-                    <Users size={18} className="text-emerald-600" />
-                  </div>
-                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${ROLE_COLORS[team.role]}`}>
-                    {team.role}
-                  </span>
-                </div>
-                <h3 className="text-gray-900 font-semibold group-hover:text-emerald-600 transition-colors">
-                  {team.name}
-                </h3>
-                <p className="text-gray-400 text-xs mt-1 flex items-center gap-1">
-                  Max {team.max_size} members <ChevronRight size={12} />
-                </p>
-              </Link>
+      {/* ── Teams tab ───────────────────────────────────────────── */}
+      {activeTab === 'teams' && (
+        <>
+          {teamsLoading && (
+            <div className="flex items-center gap-2 text-gray-400 py-12 justify-center">
+              <Loader2 className="animate-spin" size={20} /><span>Loading teams…</span>
             </div>
-          ))}
+          )}
+
+          {teamsError && (
+            <div className="text-center py-12 text-gray-500 text-sm">Unable to load teams.</div>
+          )}
+
+          {!teamsLoading && !teamsError && teams?.length === 0 && (
+            <div className="flex flex-col items-center gap-3 py-16 text-gray-400">
+              <Users size={36} className="text-gray-300" />
+              <p className="text-sm">No teams yet. Create the first one.</p>
+            </div>
+          )}
+
+          {!teamsLoading && teams && teams.length > 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {teams.map((team) => (
+                <div key={team.id} className="relative group">
+                  <Link
+                    href={`/projects/${projectId}/teams/${team.id}`}
+                    id={`team-card-${team.id}`}
+                    className="block bg-white border border-gray-200 rounded-xl p-5 hover:border-emerald-300 hover:shadow-md hover:shadow-emerald-50 transition-all"
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="h-10 w-10 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0">
+                        <Users size={18} className="text-emerald-600" />
+                      </div>
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${ROLE_COLORS[team.role]}`}>
+                        {team.role}
+                      </span>
+                    </div>
+                    <h3 className="text-gray-900 font-semibold group-hover:text-emerald-600 transition-colors">
+                      {team.name}
+                    </h3>
+                    <p className="text-gray-400 text-xs mt-1 flex items-center gap-1">
+                      Max {team.max_size} members <ChevronRight size={12} />
+                    </p>
+                  </Link>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ── Join Requests tab ───────────────────────────────────── */}
+      {activeTab === 'requests' && isOwnerOrAdmin && (
+        <div className="space-y-3">
+          {!joinRequests || joinRequests.length === 0 ? (
+            <div className="flex flex-col items-center gap-3 py-16 text-gray-400">
+              <Bell size={32} className="text-gray-300" />
+              <p className="text-sm">No pending join requests.</p>
+            </div>
+          ) : (
+            joinRequests.map((req) => (
+              <div key={req.id} className="flex items-center justify-between bg-white border border-gray-200 rounded-xl px-4 py-3">
+                <div>
+                  <p className="text-sm font-medium text-gray-900">{req.name}</p>
+                  <p className="text-xs text-gray-400">{req.email}</p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    id={`approve-req-${req.id}`}
+                    onClick={() => resolveJoinReq.mutateAsync({ requestId: req.id, status: 'APPROVED' })}
+                    className="flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-lg border border-emerald-200 transition"
+                  >
+                    <Check size={12} /> Approve
+                  </button>
+                  <button
+                    id={`reject-req-${req.id}`}
+                    onClick={() => resolveJoinReq.mutateAsync({ requestId: req.id, status: 'REJECTED' })}
+                    className="flex items-center gap-1 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg border border-red-200 transition"
+                  >
+                    <XCircle size={12} /> Reject
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       )}
 

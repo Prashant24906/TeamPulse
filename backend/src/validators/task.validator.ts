@@ -9,7 +9,7 @@ const taskPriority = z.enum(['LOW', 'MEDIUM', 'HIGH']);
 
 export const createTaskSchema = z.object({
   name: z
-    .string({ required_error: 'Task name is required' })
+    .string({ error: 'Task name is required' })
     .trim()
     .min(2, 'Name must be at least 2 characters')
     .max(200, 'Name must be at most 200 characters'),
@@ -48,3 +48,4 @@ export const updateTaskSchema = z
 
 export type CreateTaskInput = z.infer<typeof createTaskSchema>;
 export type UpdateTaskInput = z.infer<typeof updateTaskSchema>;
+

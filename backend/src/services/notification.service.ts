@@ -1,5 +1,5 @@
-import sql from '../../config/database';
-import type { TaskDeadlineJobData, NotificationType } from '../jobs/taskDeadline.job';
+import sql from '../config/database';
+import type { TaskDeadlineJobData, NotificationType } from '../jobs/jobs/taskDeadline.job';
 
 // ---------------------------------------------------------------------------
 // notification.service.ts — persist a notification to PostgreSQL

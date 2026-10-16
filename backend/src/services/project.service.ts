@@ -104,4 +104,57 @@ export async function deleteProject(userId: string, projectId: string) {
 
 
 // ---------------------------------------------------------------------------
-// Helper — resolve a project's team and the caller's role in that team.
+// Project search / discovery
+// ---------------------------------------------------------------------------
+
+export async function searchProjects(q: string, userId: string) {
+  return projectRepo.searchProjects(q, userId);
+}
+
+// ---------------------------------------------------------------------------
+// Project join requests
+// ---------------------------------------------------------------------------
+
+export async function createJoinRequest(projectId: string, userId: string) {
+  const project = await projectRepo.findProjectById(projectId);
+  if (!project) throw new AppError(404, 'Project not found');
+
+  // Already a member — no need to request
+  const existing = await projectRepo.findMemberRole(projectId, userId);
+  if (existing) throw new AppError(409, 'You are already a member of this project');
+
+  return projectRepo.createJoinRequest(projectId, userId);
+}
+
+export async function getJoinRequests(projectId: string, callerId: string) {
+  const role = await projectRepo.findMemberRole(projectId, callerId);
+  if (!role || (role !== 'OWNER' && role !== 'ADMIN')) {
+    throw new AppError(403, 'Only project OWNER or ADMIN can view join requests');
+  }
+  return projectRepo.findJoinRequestsByProject(projectId);
+}
+
+export async function resolveJoinRequest(
+  projectId: string,
+  requestId: string,
+  status: 'APPROVED' | 'REJECTED',
+  callerId: string
+) {
+  const role = await projectRepo.findMemberRole(projectId, callerId);
+  if (!role || (role !== 'OWNER' && role !== 'ADMIN')) {
+    throw new AppError(403, 'Only project OWNER or ADMIN can resolve join requests');
+  }
+
+  const req = await projectRepo.findJoinRequestById(requestId);
+  if (!req || req.project_id !== projectId) throw new AppError(404, 'Join request not found');
+  if (req.status !== 'PENDING') throw new AppError(409, 'Request already resolved');
+
+  const updated = await projectRepo.updateJoinRequest(requestId, status);
+
+  if (status === 'APPROVED') {
+    // Add the user as a MEMBER of the project
+    await projectRepo.addMember(projectId, req.user_id, 'MEMBER');
+  }
+
+  return updated;
+}

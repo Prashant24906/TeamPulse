@@ -6,7 +6,7 @@ import { z } from 'zod';
 
 export const createTeamSchema = z.object({
   name: z
-    .string({ required_error: 'Team name is required' })
+    .string({ error: 'Team name is required' })
     .trim()
     .min(2, 'Name must be at least 2 characters')
     .max(100, 'Name must be at most 100 characters'),
@@ -40,7 +40,7 @@ export const addMemberSchema = z.object({
   userId:   z.string().uuid('userId must be a valid UUID').optional(),
   username: z.string().trim().toLowerCase().optional(),
   role: z.enum(['ADMIN', 'MEMBER'], {
-    errorMap: () => ({ message: 'Role must be ADMIN or MEMBER' }),
+    error: 'Role must be ADMIN or MEMBER',
   }),
 }).refine((d) => d.userId || d.username, {
   message: 'Provide either userId or username',
@@ -52,7 +52,7 @@ export const addMemberSchema = z.object({
 
 export const updateMemberRoleSchema = z.object({
   role: z.enum(['ADMIN', 'MEMBER'], {
-    errorMap: () => ({ message: 'Role must be ADMIN or MEMBER' }),
+    error: 'Role must be ADMIN or MEMBER',
   }),
 });
 
@@ -60,3 +60,4 @@ export type CreateTeamInput      = z.infer<typeof createTeamSchema>;
 export type UpdateTeamInput      = z.infer<typeof updateTeamSchema>;
 export type AddMemberInput       = z.infer<typeof addMemberSchema>;
 export type UpdateMemberRoleInput = z.infer<typeof updateMemberRoleSchema>;
+

@@ -150,4 +150,81 @@ export async function createTeamInProject(
   }
 }
 
+// ---------------------------------------------------------------------------
+// GET /api/projects/search?q=
+// ---------------------------------------------------------------------------
 
+export async function searchProjects(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const q = String(req.query.q ?? '');
+    const results = await projectService.searchProjects(q, req.user!.userId);
+    res.json({ status: 'success', data: { projects: results } });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// POST /api/projects/:projectId/join-requests
+// ---------------------------------------------------------------------------
+
+export async function createJoinRequest(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const projectId = req.params.projectId as string;
+    const request = await projectService.createJoinRequest(projectId, req.user!.userId);
+    res.status(201).json({ status: 'success', data: { request } });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// GET /api/projects/:projectId/join-requests
+// ---------------------------------------------------------------------------
+
+export async function getJoinRequests(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const projectId = req.params.projectId as string;
+    const requests = await projectService.getJoinRequests(projectId, req.user!.userId);
+    res.json({ status: 'success', data: { requests } });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// PATCH /api/projects/:projectId/join-requests/:requestId
+// ---------------------------------------------------------------------------
+
+export async function resolveJoinRequest(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const projectId = req.params.projectId as string;
+    const requestId = req.params.requestId as string;
+    const { status } = req.body as { status: 'APPROVED' | 'REJECTED' };
+    if (status !== 'APPROVED' && status !== 'REJECTED') {
+      return next(new AppError(400, 'status must be APPROVED or REJECTED'));
+    }
+    const updated = await projectService.resolveJoinRequest(
+      projectId, requestId, status, req.user!.userId
+    );
+    res.json({ status: 'success', data: { request: updated } });
+  } catch (err) {
+    next(err);
+  }
+}

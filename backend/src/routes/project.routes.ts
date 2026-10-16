@@ -14,9 +14,10 @@ router.use(authenticate);
 // Project CRUD
 // ---------------------------------------------------------------------------
 
-router.post('/',           projectController.createProject);
-router.get('/',            projectController.getMyProjects);
-router.get('/:projectId',  projectController.getProject);
+router.post('/',            projectController.createProject);
+router.get('/',             projectController.getMyProjects);
+router.get('/search',       projectController.searchProjects);   // must be before /:projectId
+router.get('/:projectId',   projectController.getProject);
 router.patch('/:projectId', projectController.updateProject);
 router.delete('/:projectId', projectController.deleteProject);
 
@@ -53,5 +54,13 @@ router.post('/:projectId/teams/:teamId/messages', messageController.sendMessage)
 
 router.post('/:projectId/teams/:teamId/tasks',  taskController.createTask);
 router.get('/:projectId/teams/:teamId/tasks',   taskController.getTasksByTeam);
+
+// ---------------------------------------------------------------------------
+// Project join requests
+// ---------------------------------------------------------------------------
+
+router.post('/:projectId/join-requests',              projectController.createJoinRequest);
+router.get('/:projectId/join-requests',               projectController.getJoinRequests);
+router.patch('/:projectId/join-requests/:requestId',  projectController.resolveJoinRequest);
 
 export default router;
