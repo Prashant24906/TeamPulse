@@ -9,7 +9,7 @@ import {
 } from '@/hooks/useTeams';
 import { useAuth } from '@/hooks/useAuth';
 import { useTasks, useCreateTask, useUpdateTask, useDeleteTask } from '@/hooks/useTasks';
-import { useJoinRequests, useUpdateJoinRequest } from '@/hooks/useTeamDiscovery';
+import { useJoinRequests, useUpdateJoinRequest, useCreateTeamJoinRequest } from '@/hooks/useTeamDiscovery';
 import { ChatPanel } from '@/components/chat/ChatPanel';
 import {
   FolderOpen, Users, Plus, Trash2, ChevronRight,
@@ -210,8 +210,11 @@ export default function TeamDetailPage({
   }>({ open: false });
   const [activeTab, setActiveTab] = useState<'board' | 'members' | 'requests' | 'chat'>('board');
 
-  const myRole = team?.role;
+  const myRole = team?.role ?? null;
   const isOwnerOrAdmin = myRole === 'OWNER' || myRole === 'ADMIN';
+  const isMember = myRole !== null;
+
+  const createJoinReq = useCreateTeamJoinRequest(projectId, teamId);
 
   if (teamLoading) {
     return (
@@ -227,6 +230,76 @@ export default function TeamDetailPage({
         <AlertCircle size={24} className="text-red-400" />
         <p className="text-sm">Team not found.</p>
         <Link href={`/projects/${projectId}`} className="text-sm text-emerald-600 hover:underline">Back to Project</Link>
+      </div>
+    );
+  }
+
+  // ── Non-member view: join request panel ─────────────────────────────────
+  if (!isMember) {
+    const hasPending = createJoinReq.isSuccess;
+    return (
+      <div className="flex flex-col h-full">
+        {/* Header */}
+        <div className="px-8 pt-6 pb-4 border-b border-gray-200 bg-white">
+          <div className="flex items-center gap-3 mb-1">
+            <Link href={`/projects/${projectId}`} className="text-gray-400 hover:text-gray-700">
+              <ArrowLeft size={18} />
+            </Link>
+            <div className="h-9 w-9 rounded-lg bg-emerald-50 flex items-center justify-center">
+              <Users size={16} className="text-emerald-600" />
+            </div>
+            <div className="flex-1">
+              <h1 className="text-xl font-bold text-gray-900">{team.name}</h1>
+            </div>
+            <span className="text-xs font-semibold px-2.5 py-1 rounded-full border text-gray-400 bg-gray-100 border-gray-200">
+              Not a member
+            </span>
+          </div>
+        </div>
+
+        {/* Join CTA */}
+        <div className="flex-1 flex items-center justify-center p-8">
+          <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-10 max-w-md w-full text-center">
+            <div className="h-16 w-16 rounded-2xl bg-emerald-50 flex items-center justify-center mx-auto mb-5">
+              <UserPlus size={28} className="text-emerald-600" />
+            </div>
+            <h2 className="text-xl font-bold text-gray-900 mb-2">Join {team.name}</h2>
+            <p className="text-gray-500 text-sm mb-1">
+              This team has up to <span className="font-medium text-gray-700">{team.max_size} members</span>.
+            </p>
+            <p className="text-gray-400 text-sm mb-8">
+              Send a join request and wait for a team admin to approve it.
+            </p>
+
+            {hasPending ? (
+              <div
+                id={`join-request-sent-${teamId}`}
+                className="flex items-center justify-center gap-2 text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-6 py-3 font-semibold text-sm"
+              >
+                <UserCheck size={16} />
+                Request Sent — waiting for approval
+              </div>
+            ) : (
+              <button
+                id={`send-join-request-${teamId}`}
+                onClick={() => createJoinReq.mutate()}
+                disabled={createJoinReq.isPending}
+                className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-semibold px-6 py-3 rounded-xl transition"
+              >
+                {createJoinReq.isPending
+                  ? <><Loader2 size={16} className="animate-spin" /> Sending…</>
+                  : <><UserPlus size={16} /> Request to Join</>}
+              </button>
+            )}
+
+            {createJoinReq.isError && (
+              <p className="mt-3 text-xs text-red-500">
+                {/* @ts-expect-error axios error shape */}
+                {createJoinReq.error?.response?.data?.message ?? 'Failed to send request. Try again.'}
+              </p>
+            )}
+          </div>
+        </div>
       </div>
     );
   }

@@ -45,6 +45,73 @@ export async function getMyProjects(
 }
 
 // ---------------------------------------------------------------------------
+// GET /api/projects/:projectId/members
+// ---------------------------------------------------------------------------
+
+export async function getProjectMembers(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const members = await projectService.getProjectMembers(
+      req.user!.userId,
+      req.params.projectId as string
+    );
+    res.status(200).json({ status: 'success', data: { members } });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// PATCH /api/projects/:projectId/members/:userId
+// ---------------------------------------------------------------------------
+
+export async function updateProjectMemberRole(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const { role } = req.body as { role: string };
+    if (!['ADMIN', 'MEMBER'].includes(role)) {
+      return next(new AppError(400, 'role must be ADMIN or MEMBER'));
+    }
+    const member = await projectService.updateProjectMemberRole(
+      req.user!.userId,
+      req.params.projectId as string,
+      req.params.userId as string,
+      role as 'ADMIN' | 'MEMBER'
+    );
+    res.status(200).json({ status: 'success', data: { member } });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// DELETE /api/projects/:projectId/members/:userId
+// ---------------------------------------------------------------------------
+
+export async function kickProjectMember(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    await projectService.kickProjectMember(
+      req.user!.userId,
+      req.params.projectId as string,
+      req.params.userId as string
+    );
+    res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // GET /api/projects/:projectId
 // ---------------------------------------------------------------------------
 

@@ -60,25 +60,38 @@ export async function getTeamsByProject(userId: string, projectId: string) {
 }
 
 // ---------------------------------------------------------------------------
-// Get single team — caller must be a member
+// Get single team — project members can view; non-members get role: null
 // ---------------------------------------------------------------------------
 
 export async function getTeam(userId: string, teamId: string) {
-  const role = await teamRepo.findMemberRole(teamId, userId);
-  if (!role) throw new AppError(403, 'You are not a member of this team');
+  const teamRole = await teamRepo.findMemberRole(teamId, userId);
 
   // Cache-aside: check Redis first, fall back to DB on miss
   const cacheKey = CacheKeys.team(teamId);
   const cached = await cacheGet<Awaited<ReturnType<typeof teamRepo.findTeamById>>>(cacheKey);
-  if (cached) return { ...cached, role };
+
+  if (cached) {
+    // If caller is not a team member, verify they are at least a project member
+    if (!teamRole) {
+      const projectRole = await projectRepo.findMemberRole(cached.project_id, userId);
+      if (!projectRole) throw new AppError(403, 'You are not a member of this project');
+    }
+    return { ...cached, role: teamRole ?? null };
+  }
 
   const team = await teamRepo.findTeamById(teamId);
   if (!team) throw new AppError(404, 'Team not found');
 
+  // If caller is not a team member, verify they are at least a project member
+  if (!teamRole) {
+    const projectRole = await projectRepo.findMemberRole(team.project_id, userId);
+    if (!projectRole) throw new AppError(403, 'You are not a member of this project');
+  }
+
   // Store in Redis (TTL: 5 min) — role is caller-specific so not cached
   await cacheSet(cacheKey, team);
 
-  return { ...team, role };
+  return { ...team, role: teamRole ?? null };
 }
 
 // ---------------------------------------------------------------------------

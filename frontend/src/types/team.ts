@@ -11,7 +11,7 @@ export interface Team {
   created_by: string;
   max_size: number;
   created_at: string;
-  role: TeamRole; // caller's role — included by backend
+  role: TeamRole | null; // null = project member but not yet a team member
 }
 
 export interface TeamMember {

@@ -5,10 +5,19 @@ import api from '@/lib/api';
 import type { Project } from '@/types/project';
 import type { Team } from '@/types/team';
 
-interface ProjectsResponse { status: string; data: { projects: Project[] } }
-interface ProjectResponse  { status: string; data: { project: Project } }
-interface TeamsResponse    { status: string; data: { teams: Team[] } }
-interface TeamResponse     { status: string; data: { team: Team } }
+interface ProjectsResponse  { status: string; data: { projects: Project[] } }
+interface ProjectResponse   { status: string; data: { project: Project } }
+interface TeamsResponse     { status: string; data: { teams: Team[] } }
+interface TeamResponse      { status: string; data: { team: Team } }
+
+export interface ProjectMember {
+  user_id:   string;
+  name:      string;
+  email:     string;
+  role:      import('@/types/project').ProjectRole;
+  joined_on: string;
+}
+interface MembersResponse { status: string; data: { members: ProjectMember[] } }
 
 // ---------------------------------------------------------------------------
 // Project queries (top-level)
@@ -32,6 +41,37 @@ export function useProject(projectId: string) {
       return res.data.data.project;
     },
     enabled: !!projectId,
+  });
+}
+
+export function useProjectMembers(projectId: string) {
+  return useQuery<ProjectMember[]>({
+    queryKey: ['project-members', projectId],
+    queryFn: async () => {
+      const res = await api.get<MembersResponse>(`/projects/${projectId}/members`);
+      return res.data.data.members;
+    },
+    enabled: !!projectId,
+  });
+}
+
+export function useUpdateProjectMemberRole(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ userId, role }: { userId: string; role: 'ADMIN' | 'MEMBER' }) => {
+      await api.patch(`/projects/${projectId}/members/${userId}`, { role });
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['project-members', projectId] }),
+  });
+}
+
+export function useKickProjectMember(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (userId: string) => {
+      await api.delete(`/projects/${projectId}/members/${userId}`);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['project-members', projectId] }),
   });
 }
 

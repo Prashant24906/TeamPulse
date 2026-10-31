@@ -3,19 +3,21 @@
 import { useState, use } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useProject, useProjectTeams, useCreateTeam, useDeleteProject } from '@/hooks/useProjects';
+import { useProject, useProjectTeams, useCreateTeam, useDeleteProject, useProjectMembers, useUpdateProjectMemberRole, useKickProjectMember } from '@/hooks/useProjects';
+import type { ProjectMember } from '@/hooks/useProjects';
 import { useProjectJoinRequests, useResolveProjectJoinRequest } from '@/hooks/useProjectDiscovery';
 import {
-  ArrowLeft, Users, Plus, Trash2, ChevronRight, Loader2, AlertCircle, X, FolderOpen, Bell, Check, XCircle,
+  ArrowLeft, Users, Plus, Trash2, ChevronRight, Loader2, AlertCircle, X,
+  FolderOpen, Bell, Check, XCircle, UserCircle, UserMinus,
 } from 'lucide-react';
-import type { TeamRole } from '@/types/team';
+import type { ProjectRole } from '@/types/project';
 import { z } from 'zod';
 
 // ---------------------------------------------------------------------------
 // Styles
 // ---------------------------------------------------------------------------
 
-const ROLE_COLORS: Record<TeamRole, string> = {
+const ROLE_COLORS: Record<ProjectRole, string> = {
   OWNER:  'text-amber-700 bg-amber-50 border border-amber-200',
   ADMIN:  'text-sky-700 bg-sky-50 border border-sky-200',
   MEMBER: 'text-gray-600 bg-gray-100 border border-gray-200',
@@ -132,8 +134,12 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
   const resolveJoinReq         = useResolveProjectJoinRequest(projectId);
   const pendingCount           = joinRequests?.length ?? 0;
 
+  const { data: members, isLoading: membersLoading } = useProjectMembers(isOwnerOrAdmin ? projectId : '');
+  const updateMemberRole = useUpdateProjectMemberRole(projectId);
+  const kickMember       = useKickProjectMember(projectId);
+
   const [showCreateTeam, setShowCreateTeam] = useState(false);
-  const [activeTab, setActiveTab]           = useState<'teams' | 'requests'>('teams');
+  const [activeTab, setActiveTab]           = useState<'teams' | 'members' | 'requests'>('teams');
 
   const handleDeleteProject = async () => {
     if (!confirm(`Delete project "${project?.name}"? This removes all teams and tasks.`)) return;
@@ -172,20 +178,22 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
         <div className="flex-1">
           <h1 className="text-xl font-bold text-gray-900">{project.name}</h1>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2">{
+          isOwnerOrAdmin&&
           <button
-            id="create-team-btn"
-            onClick={() => setShowCreateTeam(true)}
-            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold px-4 py-2 rounded-lg transition"
+          id="create-team-btn"
+          onClick={() => setShowCreateTeam(true)}
+          className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold px-4 py-2 rounded-lg transition"
           >
             <Plus size={15} /> New Team
           </button>
+          }
           {isOwner && (
             <button
-              id="delete-project-btn"
-              onClick={handleDeleteProject}
-              className="text-gray-400 hover:text-red-500 transition p-2 rounded-lg hover:bg-red-50"
-              title="Delete project"
+            id="delete-project-btn"
+            onClick={handleDeleteProject}
+            className="text-gray-400 hover:text-red-500 transition p-2 rounded-lg hover:bg-red-50"
+            title="Delete project"
             >
               <Trash2 size={16} />
             </button>
@@ -225,6 +233,17 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
                 {pendingCount}
               </span>
             )}
+          </button>
+          <button
+            onClick={() => setActiveTab('members')}
+            className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 transition ${
+              activeTab === 'members'
+                ? 'border-emerald-600 text-emerald-700'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <Users size={13} />
+            Members
           </button>
         </div>
       )}
@@ -313,6 +332,86 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
                 </div>
               </div>
             ))
+          )}
+        </div>
+      )}
+
+      {/* ── Members tab ─────────────────────────────────────────── */}
+      {activeTab === 'members' && isOwnerOrAdmin && (
+        <div className="max-w-2xl space-y-3">
+          {membersLoading ? (
+            <div className="flex items-center gap-2 text-gray-400 py-12 justify-center">
+              <Loader2 className="animate-spin" size={18} />
+              <span className="text-sm">Loading members…</span>
+            </div>
+          ) : !members || members.length === 0 ? (
+            <div className="flex flex-col items-center gap-3 py-16 text-gray-400">
+              <UserCircle size={32} className="text-gray-300" />
+              <p className="text-sm">No members found.</p>
+            </div>
+          ) : (
+            <>
+              <p className="text-xs text-gray-400 mb-2">{members.length} member{members.length !== 1 ? 's' : ''}</p>
+              {members.map((m: ProjectMember) => (
+                <div
+                  key={m.user_id}
+                  id={`project-member-${m.user_id}`}
+                  className="flex items-center justify-between bg-white border border-gray-200 rounded-xl px-4 py-3 hover:border-gray-300 transition"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-full bg-emerald-50 flex items-center justify-center flex-shrink-0">
+                      <UserCircle size={18} className="text-emerald-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{m.name}</p>
+                      <p className="text-xs text-gray-400">{m.email}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border ${ROLE_COLORS[m.role]}`}>
+                      {m.role}
+                    </span>
+                    {/* Promote / demote buttons — OWNER only, not on OWNER row */}
+                    {isOwner && m.role !== 'OWNER' && (
+                      <>
+                        {m.role === 'MEMBER' ? (
+                          <button
+                            id={`promote-${m.user_id}`}
+                            onClick={() => updateMemberRole.mutate({ userId: m.user_id, role: 'ADMIN' })}
+                            disabled={updateMemberRole.isPending}
+                            className="text-xs font-semibold text-sky-700 bg-sky-50 hover:bg-sky-100 border border-sky-200 px-2.5 py-1 rounded-lg transition disabled:opacity-50"
+                          >
+                            → Admin
+                          </button>
+                        ) : (
+                          <button
+                            id={`demote-${m.user_id}`}
+                            onClick={() => updateMemberRole.mutate({ userId: m.user_id, role: 'MEMBER' })}
+                            disabled={updateMemberRole.isPending}
+                            className="text-xs font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 border border-gray-200 px-2.5 py-1 rounded-lg transition disabled:opacity-50"
+                          >
+                            → Member
+                          </button>
+                        )}
+                        <button
+                          id={`kick-${m.user_id}`}
+                          onClick={() => {
+                            if (confirm(`Remove ${m.name} from this project?`)) {
+                              kickMember.mutate(m.user_id);
+                            }
+                          }}
+                          disabled={kickMember.isPending}
+                          title="Kick member"
+                          className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg border border-transparent hover:border-red-200 transition disabled:opacity-50"
+                        >
+                          <UserMinus size={14} />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </>
           )}
         </div>
       )}

@@ -111,6 +111,43 @@ export async function removeMember(projectId: string, userId: string): Promise<v
   `;
 }
 
+export async function updateMemberRole(
+  projectId: string,
+  userId: string,
+  role: ProjectRole
+): Promise<ProjectMember> {
+  const rows = await sql<ProjectMember[]>`
+    UPDATE project_members
+       SET role = ${role}
+     WHERE project_id = ${projectId} AND user_id = ${userId}
+    RETURNING *
+  `;
+  if (!rows[0]) throw new Error('Member not found');
+  return rows[0];
+}
+
+export interface ProjectMemberWithUser {
+  user_id:   string;
+  name:      string;
+  email:     string;
+  role:      ProjectRole;
+  joined_on: Date;
+}
+
+export async function findMembersByProject(
+  projectId: string
+): Promise<ProjectMemberWithUser[]> {
+  return sql<ProjectMemberWithUser[]>`
+    SELECT pm.user_id, u.name, u.email, pm.role, pm.joined_on
+      FROM project_members pm
+      JOIN users u ON u.id = pm.user_id
+     WHERE pm.project_id = ${projectId}
+     ORDER BY
+       CASE pm.role WHEN 'OWNER' THEN 1 WHEN 'ADMIN' THEN 2 ELSE 3 END,
+       u.name ASC
+  `;
+}
+
 // ---------------------------------------------------------------------------
 // Project search / discovery
 // ---------------------------------------------------------------------------

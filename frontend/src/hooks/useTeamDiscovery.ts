@@ -45,6 +45,26 @@ export function useCreateJoinRequest() {
 }
 
 // ---------------------------------------------------------------------------
+// useCreateTeamJoinRequest — send a join request to a team from within a project
+// ---------------------------------------------------------------------------
+
+export function useCreateTeamJoinRequest(projectId: string, teamId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const res = await api.post<JoinRequestResponse>(
+        `/projects/${projectId}/teams/${teamId}/join-requests`
+      );
+      return res.data.data.request;
+    },
+    onSuccess: () => {
+      // Refresh the team so role/pending state updates
+      qc.invalidateQueries({ queryKey: ['team', teamId] });
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
 // useJoinRequests — admin/owner: list pending requests for a team
 // ---------------------------------------------------------------------------
 

@@ -18,6 +18,9 @@ router.post('/',            projectController.createProject);
 router.get('/',             projectController.getMyProjects);
 router.get('/search',       projectController.searchProjects);   // must be before /:projectId
 router.get('/:projectId',   projectController.getProject);
+router.get('/:projectId/members',           projectController.getProjectMembers);
+router.patch('/:projectId/members/:userId',  projectController.updateProjectMemberRole);
+router.delete('/:projectId/members/:userId', projectController.kickProjectMember);
 router.patch('/:projectId', projectController.updateProject);
 router.delete('/:projectId', projectController.deleteProject);
 

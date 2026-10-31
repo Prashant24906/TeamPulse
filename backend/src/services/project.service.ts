@@ -43,6 +43,66 @@ export async function getMyProjects(userId: string) {
 }
 
 // ---------------------------------------------------------------------------
+// Get members of a project — caller must be a member
+// ---------------------------------------------------------------------------
+
+export async function getProjectMembers(userId: string, projectId: string) {
+  const role = await projectRepo.findMemberRole(projectId, userId);
+  if (!role) throw new AppError(403, 'You are not a member of this project');
+  return projectRepo.findMembersByProject(projectId);
+}
+
+// ---------------------------------------------------------------------------
+// Update a project member's role — OWNER only
+// ---------------------------------------------------------------------------
+
+export async function updateProjectMemberRole(
+  callerId: string,
+  projectId: string,
+  targetUserId: string,
+  newRole: ProjectRole
+) {
+  // Only OWNER can change project-level roles
+  const callerRole = await projectRepo.findMemberRole(projectId, callerId);
+  if (!callerRole) throw new AppError(403, 'You are not a member of this project');
+  if (callerRole !== 'OWNER') throw new AppError(403, 'Only the project OWNER can change member roles');
+
+  // Cannot change own role
+  if (callerId === targetUserId) throw new AppError(400, 'You cannot change your own role');
+
+  // Cannot promote anyone to OWNER (transfer ownership is a separate action)
+  if (newRole === 'OWNER') throw new AppError(400, 'Cannot promote to OWNER — use ownership transfer');
+
+  // Target must be a member
+  const targetRole = await projectRepo.findMemberRole(projectId, targetUserId);
+  if (!targetRole) throw new AppError(404, 'User is not a member of this project');
+  if (targetRole === 'OWNER') throw new AppError(400, 'Cannot change the OWNER\'s role');
+
+  return projectRepo.updateMemberRole(projectId, targetUserId, newRole);
+}
+
+// ---------------------------------------------------------------------------
+// Kick a project member — OWNER only
+// ---------------------------------------------------------------------------
+
+export async function kickProjectMember(
+  callerId: string,
+  projectId: string,
+  targetUserId: string
+) {
+  const callerRole = await projectRepo.findMemberRole(projectId, callerId);
+  if (!callerRole) throw new AppError(403, 'You are not a member of this project');
+  if (callerRole !== 'OWNER') throw new AppError(403, 'Only the project OWNER can remove members');
+  if (callerId === targetUserId) throw new AppError(400, 'You cannot remove yourself');
+
+  const targetRole = await projectRepo.findMemberRole(projectId, targetUserId);
+  if (!targetRole) throw new AppError(404, 'User is not a member of this project');
+  if (targetRole === 'OWNER') throw new AppError(400, 'Cannot remove the project OWNER');
+
+  await projectRepo.removeMember(projectId, targetUserId);
+}
+
+// ---------------------------------------------------------------------------
 // Get single project — caller must be a project member
 // ---------------------------------------------------------------------------
 
@@ -50,20 +110,18 @@ export async function getProject(userId: string, projectId: string) {
   const cacheKey = CacheKeys.project(projectId);
   const cached = await cacheGet<projectRepo.Project>(cacheKey);
 
+  const role = await projectRepo.findMemberRole(projectId, userId);
+  if (!role) throw new AppError(403, 'You are not a member of this project');
+
   if (cached) {
-    const role = await projectRepo.findMemberRole(projectId, userId);
-    if (!role) throw new AppError(403, 'You are not a member of this project');
-    return cached;
+    return { ...cached, role };
   }
 
   const project = await projectRepo.findProjectById(projectId);
   if (!project) throw new AppError(404, 'Project not found');
 
-  const role = await projectRepo.findMemberRole(projectId, userId);
-  if (!role) throw new AppError(403, 'You are not a member of this project');
-
   await cacheSet(cacheKey, project);
-  return project;
+  return { ...project, role };
 }
 
 // ---------------------------------------------------------------------------
