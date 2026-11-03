@@ -4,6 +4,7 @@ import * as joinRepo from '../repositories/teamJoinRequest.repository';
 import { emitToTeam, emitToUser } from '../websocket/emit';
 import { WS_EVENTS } from '../websocket/events';
 import type { UpdateJoinRequestInput } from '../validators/teamJoinRequest.validator';
+import { assertTeamBelongsToProject } from './team.guard';
 
 // Role hierarchy helper (mirrors team.service.ts)
 const ROLE_RANK: Record<'OWNER' | 'ADMIN' | 'MEMBER', number> = {
@@ -25,7 +26,8 @@ export async function searchTeams(userId: string, q: string) {
 // createJoinRequest — authenticated user requests to join a team
 // ---------------------------------------------------------------------------
 
-export async function createJoinRequest(userId: string, teamId: string) {
+export async function createJoinRequest(userId: string, teamId: string, projectId?: string) {
+  if (projectId) await assertTeamBelongsToProject(teamId, projectId);
   // 1. Team must exist
   const team = await teamRepo.findTeamById(teamId);
   if (!team) throw new AppError(404, 'Team not found');
@@ -61,7 +63,8 @@ export async function createJoinRequest(userId: string, teamId: string) {
 // getJoinRequests — OWNER or ADMIN only
 // ---------------------------------------------------------------------------
 
-export async function getJoinRequests(callerId: string, teamId: string) {
+export async function getJoinRequests(callerId: string, teamId: string, projectId?: string) {
+  if (projectId) await assertTeamBelongsToProject(teamId, projectId);
   const role = await teamRepo.findMemberRole(teamId, callerId);
   if (!role) throw new AppError(403, 'You are not a member of this team');
   if (!hasRole(role, 'ADMIN')) {
@@ -79,8 +82,10 @@ export async function updateJoinRequest(
   callerId: string,
   teamId: string,
   requestId: string,
-  input: UpdateJoinRequestInput
+  input: UpdateJoinRequestInput,
+  projectId?: string
 ) {
+  if (projectId) await assertTeamBelongsToProject(teamId, projectId);
   // 1. Caller must be OWNER or ADMIN
   const callerRole = await teamRepo.findMemberRole(teamId, callerId);
   if (!callerRole) throw new AppError(403, 'You are not a member of this team');

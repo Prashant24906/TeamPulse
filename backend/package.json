@@ -7,7 +7,9 @@
     "dev": "tsx watch src/server.ts",
     "worker": "tsx watch src/jobs/workers/notification.worker.ts",
     "build": "tsc",
-    "start": "node dist/server.js"
+    "start": "node dist/server.js",
+    "test": "vitest",
+    "test:run": "vitest run"
   },
   "keywords": [],
   "author": "",
@@ -36,8 +38,10 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^22.20.2",
     "@types/pg": "^8.23.1",
+    "@vitest/coverage-v8": "^5.0.5",
     "ts-node-dev": "^2.0.0",
     "tsx": "^4.23.13",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
   }
 }

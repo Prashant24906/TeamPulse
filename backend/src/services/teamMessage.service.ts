@@ -4,6 +4,7 @@ import * as messageRepo from '../repositories/teamMessage.repository';
 import { emitToTeam }   from '../websocket/emit';
 import { WS_EVENTS }    from '../websocket/events';
 import type { SendMessageInput, ListMessagesInput } from '../validators/teamMessage.validator';
+import { assertTeamBelongsToProject } from './team.guard';
 
 // ---------------------------------------------------------------------------
 // Authorization helper — all roles (OWNER/ADMIN/MEMBER) can chat
@@ -21,8 +22,10 @@ async function requireMember(teamId: string, userId: string): Promise<void> {
 export async function getMessages(
   userId: string,
   teamId: string,
-  input: ListMessagesInput
+  input: ListMessagesInput,
+  projectId?: string
 ) {
+  if (projectId) await assertTeamBelongsToProject(teamId, projectId);
   await requireMember(teamId, userId);
   return messageRepo.getMessages(teamId, input.limit, input.before);
 }
@@ -34,8 +37,10 @@ export async function getMessages(
 export async function sendMessage(
   userId: string,
   teamId: string,
-  input: SendMessageInput
+  input: SendMessageInput,
+  projectId?: string
 ) {
+  if (projectId) await assertTeamBelongsToProject(teamId, projectId);
   await requireMember(teamId, userId);
 
   const message = await messageRepo.createMessage(teamId, userId, input.content);

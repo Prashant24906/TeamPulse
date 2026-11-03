@@ -12,6 +12,8 @@ import type {
 import { emitToTeam } from '../websocket/emit';
 import { WS_EVENTS } from '../websocket/events';
 import { cacheGet, cacheSet, cacheInvalidate, CacheKeys } from '../utils/cache';
+import { evictUserFromTeamRoom } from '../websocket/rooms';
+import { assertTeamBelongsToProject } from './team.guard';
 
 
 // Role hierarchy for comparisons
@@ -63,7 +65,8 @@ export async function getTeamsByProject(userId: string, projectId: string) {
 // Get single team — project members can view; non-members get role: null
 // ---------------------------------------------------------------------------
 
-export async function getTeam(userId: string, teamId: string) {
+export async function getTeam(userId: string, teamId: string, projectId?: string) {
+  if (projectId) await assertTeamBelongsToProject(teamId, projectId);
   const teamRole = await teamRepo.findMemberRole(teamId, userId);
 
   // Cache-aside: check Redis first, fall back to DB on miss
@@ -101,8 +104,10 @@ export async function getTeam(userId: string, teamId: string) {
 export async function updateTeam(
   userId: string,
   teamId: string,
-  input: UpdateTeamInput
+  input: UpdateTeamInput,
+  projectId?: string
 ) {
+  if (projectId) await assertTeamBelongsToProject(teamId, projectId);
   const role = await teamRepo.findMemberRole(teamId, userId);
   if (!role) throw new AppError(403, 'You are not a member of this team');
   if (!hasRole(role, 'ADMIN')) throw new AppError(403, 'Only OWNER or ADMIN can update the team');
@@ -132,7 +137,8 @@ export async function updateTeam(
 // Delete team — OWNER only
 // ---------------------------------------------------------------------------
 
-export async function deleteTeam(userId: string, teamId: string) {
+export async function deleteTeam(userId: string, teamId: string, projectId?: string) {
+  if (projectId) await assertTeamBelongsToProject(teamId, projectId);
   const role = await teamRepo.findMemberRole(teamId, userId);
   if (!role) throw new AppError(403, 'You are not a member of this team');
   if (role !== 'OWNER') throw new AppError(403, 'Only the OWNER can delete the team');
@@ -151,7 +157,8 @@ export async function deleteTeam(userId: string, teamId: string) {
 // Get members — any team member can view
 // ---------------------------------------------------------------------------
 
-export async function getMembers(userId: string, teamId: string) {
+export async function getMembers(userId: string, teamId: string, projectId?: string) {
+  if (projectId) await assertTeamBelongsToProject(teamId, projectId);
   const role = await teamRepo.findMemberRole(teamId, userId);
   if (!role) throw new AppError(403, 'You are not a member of this team');
 
@@ -165,8 +172,10 @@ export async function getMembers(userId: string, teamId: string) {
 export async function addMember(
   callerId: string,
   teamId: string,
-  input: AddMemberInput
+  input: AddMemberInput,
+  projectId?: string
 ) {
+  if (projectId) await assertTeamBelongsToProject(teamId, projectId);
   const callerRole = await teamRepo.findMemberRole(teamId, callerId);
   if (!callerRole) throw new AppError(403, 'You are not a member of this team');
   if (!hasRole(callerRole, 'ADMIN')) throw new AppError(403, 'Only OWNER or ADMIN can add members');
@@ -211,8 +220,10 @@ export async function updateMemberRole(
   callerId: string,
   teamId: string,
   targetUserId: string,
-  input: UpdateMemberRoleInput
+  input: UpdateMemberRoleInput,
+  projectId?: string
 ) {
+  if (projectId) await assertTeamBelongsToProject(teamId, projectId);
   const callerRole = await teamRepo.findMemberRole(teamId, callerId);
   if (!callerRole) throw new AppError(403, 'You are not a member of this team');
   if (!hasRole(callerRole, 'ADMIN')) throw new AppError(403, 'Only OWNER or ADMIN can change roles');
@@ -250,8 +261,10 @@ export async function updateMemberRole(
 export async function removeMember(
   callerId: string,
   teamId: string,
-  targetUserId: string
+  targetUserId: string,
+  projectId?: string
 ) {
+  if (projectId) await assertTeamBelongsToProject(teamId, projectId);
   const callerRole = await teamRepo.findMemberRole(teamId, callerId);
   if (!callerRole) throw new AppError(403, 'You are not a member of this team');
 
@@ -276,5 +289,10 @@ export async function removeMember(
 
   await teamRepo.removeMember(teamId, targetUserId);
 
+  // Notify remaining members that this user was removed.
   emitToTeam(teamId, WS_EVENTS.TEAM_MEMBER_REMOVED, { teamId, userId: targetUserId });
+
+  // Evict the removed user's active sockets from the team room.
+  // This is best-effort and non-fatal — the DB mutation already committed.
+  await evictUserFromTeamRoom(targetUserId, teamId);
 }

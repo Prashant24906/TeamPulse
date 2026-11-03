@@ -161,6 +161,25 @@ export async function removeMember(teamId: string, userId: string): Promise<void
   `;
 }
 
+/**
+ * Returns the IDs of all teams (within a given project) that `userId` belongs
+ * to. Used by the project-member removal path to identify which Socket.IO team
+ * rooms to evict the user from before the membership rows are deleted.
+ */
+export async function findTeamIdsByUserAndProject(
+  projectId: string,
+  userId: string
+): Promise<string[]> {
+  const rows = await sql<{ id: string }[]>`
+    SELECT t.id
+      FROM teams t
+      JOIN team_members tm ON tm.team_id = t.id
+     WHERE t.project_id = ${projectId}
+       AND tm.user_id   = ${userId}
+  `;
+  return rows.map((r) => r.id);
+}
+
 /** Transfer ownership atomically: demote old owner → MEMBER, promote new → OWNER. */
 export async function transferOwnership(
   teamId: string,

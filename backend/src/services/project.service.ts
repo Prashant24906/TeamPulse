@@ -1,8 +1,10 @@
 import { AppError } from '../middleware/error.middleware';
 import * as projectRepo from '../repositories/project.repository';
+import * as teamRepo    from '../repositories/team.repository';
 import type { ProjectRole } from '../repositories/project.repository';
 import type { CreateProjectInput, UpdateProjectInput } from '../validators/project.validator';
 import { cacheGet, cacheSet, cacheInvalidate, CacheKeys } from '../utils/cache';
+import { evictUserFromTeamRooms } from '../websocket/rooms';
 
 // ---------------------------------------------------------------------------
 // Helper — resolve project and caller's project-level role
@@ -99,7 +101,15 @@ export async function kickProjectMember(
   if (!targetRole) throw new AppError(404, 'User is not a member of this project');
   if (targetRole === 'OWNER') throw new AppError(400, 'Cannot remove the project OWNER');
 
+  // Snapshot which team rooms to revoke BEFORE the delete, because the DB
+  // delete (or cascade) may remove team_members rows for us.
+  const teamIds = await teamRepo.findTeamIdsByUserAndProject(projectId, targetUserId);
+
   await projectRepo.removeMember(projectId, targetUserId);
+
+  // Evict user's sockets from every team room they had in this project.
+  // Best-effort, non-fatal — DB mutation already committed.
+  await evictUserFromTeamRooms(targetUserId, teamIds);
 }
 
 // ---------------------------------------------------------------------------

@@ -8,6 +8,7 @@ import { emitToTeam } from '../websocket/emit';
 import { WS_EVENTS } from '../websocket/events';
 import { scheduleTaskDeadlineJob, removeTaskDeadlineJob } from '../jobs/queues/notification.queue';
 import { isRedisReady } from '../config/redis';
+import { assertTeamBelongsToProject } from './team.guard';
 
 // ---------------------------------------------------------------------------
 // Helper — auth chain: taskId → task.team_id → team.project_id → project role
@@ -33,8 +34,10 @@ async function resolveTaskAndRole(
 export async function createTask(
   userId: string,
   teamId: string,
-  input: CreateTaskInput
+  input: CreateTaskInput,
+  projectId?: string
 ) {
+  if (projectId) await assertTeamBelongsToProject(teamId, projectId);
   const team = await teamRepo.findTeamById(teamId);
   if (!team) throw new AppError(404, 'Team not found');
 
@@ -98,7 +101,8 @@ export async function createTask(
 // Get tasks by team — any team member
 // ---------------------------------------------------------------------------
 
-export async function getTasksByTeam(userId: string, teamId: string) {
+export async function getTasksByTeam(userId: string, teamId: string, projectId?: string) {
+  if (projectId) await assertTeamBelongsToProject(teamId, projectId);
   const role = await teamRepo.findMemberRole(teamId, userId);
   if (!role) throw new AppError(403, 'You are not a member of this team');
 
