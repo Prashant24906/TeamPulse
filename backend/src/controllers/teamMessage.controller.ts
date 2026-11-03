@@ -6,8 +6,15 @@ import {
   listMessagesSchema,
 } from '../validators/teamMessage.validator';
 
+// Extract projectId only when the matched route actually defines it.
+function projectId(req: Request): string | undefined {
+  const v = req.params['projectId'];
+  if (!v || v === 'undefined') return undefined;
+  return Array.isArray(v) ? v[0] : v;
+}
+
 // ---------------------------------------------------------------------------
-// GET /api/teams/:teamId/messages?limit=50&before=<uuid>
+// GET /api/projects/:projectId/teams/:teamId/messages?limit=50&before=<uuid>
 // ---------------------------------------------------------------------------
 
 export async function getMessages(
@@ -24,7 +31,8 @@ export async function getMessages(
     const messages = await messageService.getMessages(
       req.user!.userId,
       req.params.teamId as string,
-      result.data
+      result.data,
+      projectId(req)
     );
     res.status(200).json({ status: 'success', data: { messages } });
   } catch (err) {
@@ -33,7 +41,7 @@ export async function getMessages(
 }
 
 // ---------------------------------------------------------------------------
-// POST /api/teams/:teamId/messages
+// POST /api/projects/:projectId/teams/:teamId/messages
 // ---------------------------------------------------------------------------
 
 export async function sendMessage(
@@ -50,11 +58,11 @@ export async function sendMessage(
     const message = await messageService.sendMessage(
       req.user!.userId,
       req.params.teamId as string,
-      result.data
+      result.data,
+      projectId(req)
     );
     res.status(201).json({ status: 'success', data: { message } });
   } catch (err) {
     next(err);
   }
 }
-

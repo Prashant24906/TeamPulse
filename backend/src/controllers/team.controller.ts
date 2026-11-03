@@ -9,7 +9,18 @@ import {
 } from '../validators/team.validator';
 
 // ---------------------------------------------------------------------------
-// POST /api/teams
+// Helper: extract projectId only when the route actually defines it.
+// req.params is typed as Record<string, string | string[]>, so we must narrow.
+// ---------------------------------------------------------------------------
+
+function projectId(req: Request): string | undefined {
+  const v = req.params['projectId'];
+  if (!v || v === 'undefined') return undefined;
+  return Array.isArray(v) ? v[0] : v;
+}
+
+// ---------------------------------------------------------------------------
+// POST /api/teams  (stub — teams must be created via project routes)
 // ---------------------------------------------------------------------------
 
 export async function createTeam(
@@ -17,7 +28,6 @@ export async function createTeam(
   res: Response,
   next: NextFunction
 ): Promise<void> {
-  // Teams must be created through POST /projects/:projectId/teams
   return next(new AppError(400, 'Use POST /projects/:projectId/teams to create a team'));
 }
 
@@ -39,7 +49,7 @@ export async function getMyTeams(
 }
 
 // ---------------------------------------------------------------------------
-// GET /api/teams/:teamId
+// GET /api/teams/:teamId  |  GET /api/projects/:projectId/teams/:teamId
 // ---------------------------------------------------------------------------
 
 export async function getTeam(
@@ -48,7 +58,11 @@ export async function getTeam(
   next: NextFunction
 ): Promise<void> {
   try {
-    const team = await teamService.getTeam(req.user!.userId, req.params.teamId as string, req.params.projectId);
+    const team = await teamService.getTeam(
+      req.user!.userId,
+      req.params.teamId as string,
+      projectId(req)
+    );
     res.status(200).json({ status: 'success', data: { team } });
   } catch (err) {
     next(err);
@@ -56,7 +70,7 @@ export async function getTeam(
 }
 
 // ---------------------------------------------------------------------------
-// PATCH /api/teams/:teamId
+// PATCH /api/teams/:teamId  |  PATCH /api/projects/:projectId/teams/:teamId
 // ---------------------------------------------------------------------------
 
 export async function updateTeam(
@@ -70,7 +84,12 @@ export async function updateTeam(
       return next(new AppError(400, 'Validation failed', result.error.flatten().fieldErrors));
     }
 
-    const team = await teamService.updateTeam(req.user!.userId, req.params.teamId as string, result.data, req.params.projectId);
+    const team = await teamService.updateTeam(
+      req.user!.userId,
+      req.params.teamId as string,
+      result.data,
+      projectId(req)
+    );
     res.status(200).json({ status: 'success', data: { team } });
   } catch (err) {
     next(err);
@@ -78,7 +97,7 @@ export async function updateTeam(
 }
 
 // ---------------------------------------------------------------------------
-// DELETE /api/teams/:teamId
+// DELETE /api/teams/:teamId  |  DELETE /api/projects/:projectId/teams/:teamId
 // ---------------------------------------------------------------------------
 
 export async function deleteTeam(
@@ -87,7 +106,11 @@ export async function deleteTeam(
   next: NextFunction
 ): Promise<void> {
   try {
-    await teamService.deleteTeam(req.user!.userId, req.params.teamId as string, req.params.projectId);
+    await teamService.deleteTeam(
+      req.user!.userId,
+      req.params.teamId as string,
+      projectId(req)
+    );
     res.status(204).send();
   } catch (err) {
     next(err);
@@ -95,7 +118,7 @@ export async function deleteTeam(
 }
 
 // ---------------------------------------------------------------------------
-// GET /api/teams/:teamId/members
+// GET /api/teams/:teamId/members  |  .../projects/:projectId/teams/:teamId/members
 // ---------------------------------------------------------------------------
 
 export async function getMembers(
@@ -104,7 +127,11 @@ export async function getMembers(
   next: NextFunction
 ): Promise<void> {
   try {
-    const members = await teamService.getMembers(req.user!.userId, req.params.teamId as string, req.params.projectId);
+    const members = await teamService.getMembers(
+      req.user!.userId,
+      req.params.teamId as string,
+      projectId(req)
+    );
     res.status(200).json({ status: 'success', data: { members } });
   } catch (err) {
     next(err);
@@ -112,7 +139,7 @@ export async function getMembers(
 }
 
 // ---------------------------------------------------------------------------
-// POST /api/teams/:teamId/members
+// POST /api/teams/:teamId/members  |  .../projects/:projectId/teams/:teamId/members
 // ---------------------------------------------------------------------------
 
 export async function addMember(
@@ -126,7 +153,12 @@ export async function addMember(
       return next(new AppError(400, 'Validation failed', result.error.flatten().fieldErrors));
     }
 
-    const member = await teamService.addMember(req.user!.userId, req.params.teamId as string, result.data, req.params.projectId);
+    const member = await teamService.addMember(
+      req.user!.userId,
+      req.params.teamId as string,
+      result.data,
+      projectId(req)
+    );
     res.status(201).json({ status: 'success', data: { member } });
   } catch (err) {
     next(err);
@@ -153,7 +185,7 @@ export async function updateMemberRole(
       req.params.teamId as string,
       req.params.userId as string,
       result.data,
-      req.params.projectId
+      projectId(req)
     );
     res.status(200).json({ status: 'success', data: { member } });
   } catch (err) {
@@ -171,10 +203,14 @@ export async function removeMember(
   next: NextFunction
 ): Promise<void> {
   try {
-    await teamService.removeMember(req.user!.userId, req.params.teamId as string, req.params.userId as string, req.params.projectId);
+    await teamService.removeMember(
+      req.user!.userId,
+      req.params.teamId as string,
+      req.params.userId as string,
+      projectId(req)
+    );
     res.status(204).send();
   } catch (err) {
     next(err);
   }
 }
-

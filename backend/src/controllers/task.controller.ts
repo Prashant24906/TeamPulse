@@ -3,6 +3,13 @@ import * as taskService from '../services/task.service';
 import { AppError } from '../middleware/error.middleware';
 import { createTaskSchema, updateTaskSchema } from '../validators/task.validator';
 
+// Extract projectId only when the matched route actually defines it.
+function projectId(req: Request): string | undefined {
+  const v = req.params['projectId'];
+  if (!v || v === 'undefined') return undefined;
+  return Array.isArray(v) ? v[0] : v;
+}
+
 // ---------------------------------------------------------------------------
 // POST /api/projects/:projectId/teams/:teamId/tasks
 // ---------------------------------------------------------------------------
@@ -21,7 +28,8 @@ export async function createTask(
     const task = await taskService.createTask(
       req.user!.userId,
       req.params.teamId as string,
-      result.data
+      result.data,
+      projectId(req)
     );
     res.status(201).json({ status: 'success', data: { task } });
   } catch (err) {
@@ -41,7 +49,8 @@ export async function getTasksByTeam(
   try {
     const tasks = await taskService.getTasksByTeam(
       req.user!.userId,
-      req.params.teamId as string
+      req.params.teamId as string,
+      projectId(req)
     );
     res.status(200).json({ status: 'success', data: { tasks } });
   } catch (err) {
@@ -108,4 +117,3 @@ export async function deleteTask(
     next(err);
   }
 }
-

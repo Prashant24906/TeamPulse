@@ -6,6 +6,13 @@ import {
   updateJoinRequestSchema,
 } from '../validators/teamJoinRequest.validator';
 
+// Extract projectId only when the matched route actually defines it.
+function projectId(req: Request): string | undefined {
+  const v = req.params['projectId'];
+  if (!v || v === 'undefined') return undefined;
+  return Array.isArray(v) ? v[0] : v;
+}
+
 // ---------------------------------------------------------------------------
 // GET /api/teams/search?q=<query>
 // ---------------------------------------------------------------------------
@@ -30,6 +37,7 @@ export async function searchTeams(
 
 // ---------------------------------------------------------------------------
 // POST /api/teams/:teamId/join-requests
+//   also mounted at /api/projects/:projectId/teams/:teamId/join-requests
 // ---------------------------------------------------------------------------
 
 export async function createJoinRequest(
@@ -40,7 +48,8 @@ export async function createJoinRequest(
   try {
     const request = await joinService.createJoinRequest(
       req.user!.userId,
-      req.params.teamId as string
+      req.params.teamId as string,
+      projectId(req)
     );
     res.status(201).json({ status: 'success', data: { request } });
   } catch (err) {
@@ -50,6 +59,7 @@ export async function createJoinRequest(
 
 // ---------------------------------------------------------------------------
 // GET /api/teams/:teamId/join-requests
+//   also mounted at /api/projects/:projectId/teams/:teamId/join-requests
 // ---------------------------------------------------------------------------
 
 export async function getJoinRequests(
@@ -60,7 +70,8 @@ export async function getJoinRequests(
   try {
     const requests = await joinService.getJoinRequests(
       req.user!.userId,
-      req.params.teamId as string
+      req.params.teamId as string,
+      projectId(req)
     );
     res.status(200).json({ status: 'success', data: { requests } });
   } catch (err) {
@@ -70,6 +81,7 @@ export async function getJoinRequests(
 
 // ---------------------------------------------------------------------------
 // PATCH /api/teams/:teamId/join-requests/:requestId
+//   also mounted at /api/projects/:projectId/teams/:teamId/join-requests/:requestId
 // ---------------------------------------------------------------------------
 
 export async function updateJoinRequest(
@@ -87,11 +99,11 @@ export async function updateJoinRequest(
       req.user!.userId,
       req.params.teamId as string,
       req.params.requestId as string,
-      result.data
+      result.data,
+      projectId(req)
     );
     res.status(200).json({ status: 'success', data: { request } });
   } catch (err) {
     next(err);
   }
 }
-
