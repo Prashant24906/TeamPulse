@@ -6,6 +6,7 @@ import {
   updateTeamSchema,
   addMemberSchema,
   updateMemberRoleSchema,
+  transferOwnershipSchema,
 } from '../validators/team.validator';
 
 // ---------------------------------------------------------------------------
@@ -210,6 +211,34 @@ export async function removeMember(
       projectId(req)
     );
     res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// POST /api/teams/:teamId/transfer-ownership
+//      POST /api/projects/:projectId/teams/:teamId/transfer-ownership
+// ---------------------------------------------------------------------------
+
+export async function transferOwnership(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const result = transferOwnershipSchema.safeParse(req.body);
+    if (!result.success) {
+      return next(new AppError(400, 'Validation failed', result.error.flatten().fieldErrors));
+    }
+
+    const data = await teamService.transferOwnership(
+      req.user!.userId,
+      req.params.teamId as string,
+      result.data,
+      projectId(req)
+    );
+    res.status(200).json({ status: 'success', data });
   } catch (err) {
     next(err);
   }

@@ -40,6 +40,12 @@ router.patch('/:teamId/members/:userId',  teamController.updateMemberRole);
 router.delete('/:teamId/members/:userId', teamController.removeMember);
 
 // ---------------------------------------------------------------------------
+// Ownership transfer — OWNER only
+// ---------------------------------------------------------------------------
+
+router.post('/:teamId/transfer-ownership', teamController.transferOwnership);
+
+// ---------------------------------------------------------------------------
 // Join requests
 // ---------------------------------------------------------------------------
 

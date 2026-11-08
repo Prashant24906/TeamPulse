@@ -180,15 +180,27 @@ export async function findTeamIdsByUserAndProject(
   return rows.map((r) => r.id);
 }
 
-/** Transfer ownership atomically: demote old owner → MEMBER, promote new → OWNER. */
+/**
+ * Transfer ownership atomically inside a serializable transaction.
+ * - Demotes the outgoing owner to ADMIN.
+ * - Promotes the incoming user to OWNER.
+ * Uses SELECT FOR UPDATE to prevent concurrent races on the same team.
+ */
 export async function transferOwnership(
   teamId: string,
   fromUserId: string,
   toUserId: string
 ): Promise<void> {
-  await sql.begin(async (tx) => {
+  await sql.begin('SERIALIZABLE', async (tx) => {
+    // Lock both rows for the duration of the transaction
     await tx`
-      UPDATE team_members SET role = 'MEMBER'
+      SELECT role FROM team_members
+       WHERE team_id = ${teamId}
+         AND user_id IN (${fromUserId}, ${toUserId})
+       FOR UPDATE
+    `;
+    await tx`
+      UPDATE team_members SET role = 'ADMIN'
        WHERE team_id = ${teamId} AND user_id = ${fromUserId}
     `;
     await tx`

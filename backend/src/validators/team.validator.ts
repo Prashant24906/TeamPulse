@@ -56,8 +56,17 @@ export const updateMemberRoleSchema = z.object({
   }),
 });
 
-export type CreateTeamInput      = z.infer<typeof createTeamSchema>;
-export type UpdateTeamInput      = z.infer<typeof updateTeamSchema>;
-export type AddMemberInput       = z.infer<typeof addMemberSchema>;
-export type UpdateMemberRoleInput = z.infer<typeof updateMemberRoleSchema>;
+// ---------------------------------------------------------------------------
+// Transfer ownership
+// ---------------------------------------------------------------------------
+
+export const transferOwnershipSchema = z.object({
+  newOwnerId: z.string().uuid('newOwnerId must be a valid UUID'),
+});
+
+export type CreateTeamInput        = z.infer<typeof createTeamSchema>;
+export type UpdateTeamInput        = z.infer<typeof updateTeamSchema>;
+export type AddMemberInput         = z.infer<typeof addMemberSchema>;
+export type UpdateMemberRoleInput  = z.infer<typeof updateMemberRoleSchema>;
+export type TransferOwnershipInput = z.infer<typeof transferOwnershipSchema>;
 

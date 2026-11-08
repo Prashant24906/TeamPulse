@@ -60,6 +60,16 @@ export function useSocket() {
       qc.invalidateQueries({ queryKey: ['team-members', payload.teamId] });
       qc.invalidateQueries({ queryKey: ['join-requests', payload.teamId] });
     });
+    // Ownership transfer — refresh member list so roles reflect the change
+    socket.on('team.ownership_transferred', (payload: {
+      teamId:      string;
+      newOwnerId:  string;
+      prevOwnerId: string;
+    }) => {
+      qc.invalidateQueries({ queryKey: ['team-members', payload.teamId] });
+      // Invalidate the caller's own team list so their displayed role updates
+      qc.invalidateQueries({ queryKey: ['teams'] });
+    });
     socket.on('team.member_removed', (payload: { teamId: string; userId: string }) => {
       qc.invalidateQueries({ queryKey: ['team-members', payload.teamId] });
 
@@ -151,6 +161,7 @@ export function useSocket() {
       socket.off('project.deleted');
       socket.off('team.updated');
       socket.off('team.member_added');
+      socket.off('team.ownership_transferred');
       socket.off('team.member_removed');
       socket.off('team.join_request_created');
       socket.off('team.join_request_updated');

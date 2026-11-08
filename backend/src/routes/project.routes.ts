@@ -42,6 +42,9 @@ router.post('/:projectId/teams/:teamId/members',           teamController.addMem
 router.patch('/:projectId/teams/:teamId/members/:userId',  teamController.updateMemberRole);
 router.delete('/:projectId/teams/:teamId/members/:userId', teamController.removeMember);
 
+// Ownership transfer (project-scoped)
+router.post('/:projectId/teams/:teamId/transfer-ownership', teamController.transferOwnership);
+
 // Join requests
 router.post('/:projectId/teams/:teamId/join-requests',           joinController.createJoinRequest);
 router.get('/:projectId/teams/:teamId/join-requests',            joinController.getJoinRequests);

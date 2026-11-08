@@ -11,6 +11,7 @@ export const WS_EVENTS = {
   TEAM_DELETED:               'team.deleted',
   TEAM_MEMBER_ADDED:          'team.member_added',
   TEAM_MEMBER_REMOVED:        'team.member_removed',
+  TEAM_OWNERSHIP_TRANSFERRED: 'team.ownership_transferred',
   TEAM_JOIN_REQUEST_CREATED:  'team.join_request_created',
   TEAM_JOIN_REQUEST_UPDATED:  'team.join_request_updated',
 
@@ -37,6 +38,13 @@ export type WsEvent = typeof WS_EVENTS[keyof typeof WS_EVENTS];
 export interface TeamUpdatedPayload      { teamId: string; changes: Record<string, unknown> }
 export interface TeamDeletedPayload      { teamId: string }
 export interface TeamMemberPayload       { teamId: string; userId: string; role?: string }
+export interface TeamOwnershipTransferredPayload {
+  teamId:        string;
+  newOwnerId:    string;
+  newOwnerRole:  'OWNER';
+  prevOwnerId:   string;
+  prevOwnerRole: 'ADMIN';
+}
 export interface JoinRequestPayload        { teamId: string; requestId: string; userId: string }
 export interface JoinRequestUpdatedPayload { teamId: string; requestId: string; userId: string; status: 'APPROVED' | 'REJECTED' }
 

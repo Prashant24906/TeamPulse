@@ -8,6 +8,7 @@ import type {
   UpdateTeamInput,
   AddMemberInput,
   UpdateMemberRoleInput,
+  TransferOwnershipInput,
 } from '../validators/team.validator';
 import { emitToTeam } from '../websocket/emit';
 import { WS_EVENTS } from '../websocket/events';
@@ -255,7 +256,7 @@ export async function updateMemberRole(
 }
 
 // ---------------------------------------------------------------------------
-// Remove member — OWNER or ADMIN; cannot remove OWNER
+// Remove member — OWNER or ADMIN; cannot remove OWNER; OWNER cannot self-leave
 // ---------------------------------------------------------------------------
 
 export async function removeMember(
@@ -268,8 +269,15 @@ export async function removeMember(
   const callerRole = await teamRepo.findMemberRole(teamId, callerId);
   if (!callerRole) throw new AppError(403, 'You are not a member of this team');
 
-  // Any member can leave (remove themselves)
+  // Any member can leave (remove themselves), BUT not the OWNER
   const isSelf = callerId === targetUserId;
+
+  if (isSelf && callerRole === 'OWNER') {
+    throw new AppError(
+      400,
+      'Team OWNER cannot leave without transferring ownership first'
+    );
+  }
 
   if (!isSelf && !hasRole(callerRole, 'ADMIN')) {
     throw new AppError(403, 'Only OWNER or ADMIN can remove other members');
@@ -278,6 +286,7 @@ export async function removeMember(
   const targetRole = await teamRepo.findMemberRole(teamId, targetUserId);
   if (!targetRole) throw new AppError(404, 'User is not a member of this team');
 
+  // The OWNER cannot be removed by any path — they must transfer ownership first
   if (targetRole === 'OWNER') {
     throw new AppError(400, 'Cannot remove the OWNER — transfer ownership first');
   }
@@ -295,4 +304,50 @@ export async function removeMember(
   // Evict the removed user's active sockets from the team room.
   // This is best-effort and non-fatal — the DB mutation already committed.
   await evictUserFromTeamRoom(targetUserId, teamId);
+}
+
+// ---------------------------------------------------------------------------
+// Transfer ownership — OWNER only; new owner must already be a team member
+// ---------------------------------------------------------------------------
+
+export async function transferOwnership(
+  callerId: string,
+  teamId: string,
+  input: TransferOwnershipInput,
+  projectId?: string
+) {
+  if (projectId) await assertTeamBelongsToProject(teamId, projectId);
+
+  const callerRole = await teamRepo.findMemberRole(teamId, callerId);
+  if (!callerRole) throw new AppError(403, 'You are not a member of this team');
+  if (callerRole !== 'OWNER') {
+    throw new AppError(403, 'Only the OWNER can transfer ownership');
+  }
+
+  if (callerId === input.newOwnerId) {
+    throw new AppError(400, 'Cannot transfer ownership to yourself');
+  }
+
+  const newOwnerCurrentRole = await teamRepo.findMemberRole(teamId, input.newOwnerId);
+  if (!newOwnerCurrentRole) {
+    throw new AppError(400, 'The new owner must already be a member of this team');
+  }
+
+  // Atomically demote previous owner → ADMIN and promote new owner → OWNER.
+  // Uses SERIALIZABLE transaction + SELECT FOR UPDATE to handle concurrent attempts.
+  await teamRepo.transferOwnership(teamId, callerId, input.newOwnerId);
+
+  emitToTeam(teamId, WS_EVENTS.TEAM_OWNERSHIP_TRANSFERRED, {
+    teamId,
+    newOwnerId:    input.newOwnerId,
+    newOwnerRole:  'OWNER',
+    prevOwnerId:   callerId,
+    prevOwnerRole: 'ADMIN',
+  });
+
+  return {
+    teamId,
+    newOwner:  { userId: input.newOwnerId,  role: 'OWNER' as const },
+    prevOwner: { userId: callerId,           role: 'ADMIN' as const },
+  };
 }

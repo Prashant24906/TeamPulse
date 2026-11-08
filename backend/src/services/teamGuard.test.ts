@@ -29,6 +29,7 @@ vi.mock('../repositories/team.repository', () => ({
   addMember:        vi.fn(),
   updateMemberRole: vi.fn(),
   removeMember:     vi.fn(),
+  transferOwnership: vi.fn(),
   findTeamIdsByUserAndProject: vi.fn(),
 }));
 
@@ -216,6 +217,11 @@ describe('team.service — projectId/teamId mismatch → 404', () => {
 
   it('removeMember rejects with 404', async () => {
     await expect(teamService.removeMember(USER_ID, TEAM_B, TARGET_ID, PROJECT_A))
+      .rejects.toMatchObject(MISMATCH);
+  });
+
+  it('transferOwnership rejects with 404', async () => {
+    await expect(teamService.transferOwnership(USER_ID, TEAM_B, { newOwnerId: TARGET_ID }, PROJECT_A))
       .rejects.toMatchObject(MISMATCH);
   });
 });
