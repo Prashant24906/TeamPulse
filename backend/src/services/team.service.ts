@@ -190,13 +190,21 @@ export async function addMember(
   }
   if (!resolvedUserId) throw new AppError(400, 'Provide either userId or username');
 
+  // Fetch the team to derive its parent project (not trusting a client-supplied projectId)
+  const team = await teamRepo.findTeamById(teamId);
+  if (!team) throw new AppError(404, 'Team not found');
+
+  // Verify the target user belongs to the team's parent project
+  const targetProjectRole = await projectRepo.findMemberRole(team.project_id, resolvedUserId);
+  if (!targetProjectRole) {
+    throw new AppError(403, 'User is not a member of the project this team belongs to');
+  }
+
   // Check the target isn't already a member
   const existingRole = await teamRepo.findMemberRole(teamId, resolvedUserId);
   if (existingRole) throw new AppError(409, 'User is already a member of this team');
 
   // Check max_size
-  const team = await teamRepo.findTeamById(teamId);
-  if (!team) throw new AppError(404, 'Team not found');
   const count = await teamRepo.getMemberCount(teamId);
   if (count >= team.max_size) {
     throw new AppError(400, `Team is full (max_size: ${team.max_size})`);

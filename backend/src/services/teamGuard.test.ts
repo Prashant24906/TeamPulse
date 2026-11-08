@@ -30,7 +30,8 @@ vi.mock('../repositories/team.repository', () => ({
   updateMemberRole: vi.fn(),
   removeMember:     vi.fn(),
   transferOwnership: vi.fn(),
-  findTeamIdsByUserAndProject: vi.fn(),
+  findTeamIdsByUserAndProject:       vi.fn(),
+  removeAllTeamMembershipsInProject: vi.fn(),
 }));
 
 vi.mock('../repositories/task.repository', () => ({

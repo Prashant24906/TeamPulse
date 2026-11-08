@@ -4,6 +4,8 @@ import * as teamRepo    from '../repositories/team.repository';
 import type { ProjectRole } from '../repositories/project.repository';
 import type { CreateProjectInput, UpdateProjectInput } from '../validators/project.validator';
 import { cacheGet, cacheSet, cacheInvalidate, CacheKeys } from '../utils/cache';
+import { emitToTeam } from '../websocket/emit';
+import { WS_EVENTS } from '../websocket/events';
 import { evictUserFromTeamRooms } from '../websocket/rooms';
 
 // ---------------------------------------------------------------------------
@@ -101,14 +103,23 @@ export async function kickProjectMember(
   if (!targetRole) throw new AppError(404, 'User is not a member of this project');
   if (targetRole === 'OWNER') throw new AppError(400, 'Cannot remove the project OWNER');
 
-  // Snapshot which team rooms to revoke BEFORE the delete, because the DB
-  // delete (or cascade) may remove team_members rows for us.
-  const teamIds = await teamRepo.findTeamIdsByUserAndProject(projectId, targetUserId);
+  // Remove the user's team memberships in this project BEFORE removing the
+  // project membership. Returns the affected team IDs for WS eviction.
+  // This is a system-level cascade: it intentionally bypasses the service-layer
+  // OWNER guard because the user is losing a higher-level authority (project
+  // membership), which supersedes any team-level ownership protection.
+  const teamIds = await teamRepo.removeAllTeamMembershipsInProject(projectId, targetUserId);
 
+  // Remove the project membership
   await projectRepo.removeMember(projectId, targetUserId);
 
+  // Notify team members that this user was removed from each team
+  for (const teamId of teamIds) {
+    emitToTeam(teamId, WS_EVENTS.TEAM_MEMBER_REMOVED, { teamId, userId: targetUserId });
+  }
+
   // Evict user's sockets from every team room they had in this project.
-  // Best-effort, non-fatal — DB mutation already committed.
+  // Best-effort, non-fatal — DB mutations already committed.
   await evictUserFromTeamRooms(targetUserId, teamIds);
 }
 

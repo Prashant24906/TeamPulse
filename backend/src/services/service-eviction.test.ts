@@ -44,7 +44,8 @@ vi.mock('../repositories/team.repository', () => ({
   deleteTeam:                  vi.fn(),
   getMembers:                  vi.fn(),
   transferOwnership:           vi.fn(),
-  findTeamIdsByUserAndProject: vi.fn(),
+  findTeamIdsByUserAndProject:       vi.fn(),
+  removeAllTeamMembershipsInProject: vi.fn(),
 }));
 
 // -- project.repository --
@@ -87,6 +88,7 @@ vi.mock('../websocket/events', () => ({
     TEAM_MEMBER_REMOVED:       'team.member_removed',
     TEAM_JOIN_REQUEST_CREATED: 'team.join_request_created',
     TEAM_JOIN_REQUEST_UPDATED: 'team.join_request_updated',
+    TEAM_OWNERSHIP_TRANSFERRED: 'team.ownership_transferred',
     PROJECT_CREATED:           'project.created',
     PROJECT_UPDATED:           'project.updated',
     PROJECT_DELETED:           'project.deleted',
@@ -123,6 +125,7 @@ import * as teamRepo    from '../repositories/team.repository';
 import * as projectRepo from '../repositories/project.repository';
 import { evictUserFromTeamRoom }  from '../websocket/rooms';
 import { evictUserFromTeamRooms } from '../websocket/rooms';
+import { emitToTeam } from '../websocket/emit';
 
 // Services under test
 import { removeMember }      from '../services/team.service';
@@ -134,11 +137,12 @@ import { kickProjectMember } from '../services/project.service';
 
 const mockFindTeamRole    = vi.mocked(teamRepo.findMemberRole);
 const mockTeamRemoveMember = vi.mocked(teamRepo.removeMember);
-const mockFindTeamIds     = vi.mocked(teamRepo.findTeamIdsByUserAndProject);
+const mockRemoveAllTeamMemberships = vi.mocked(teamRepo.removeAllTeamMembershipsInProject);
 
 const mockFindProjectRole        = vi.mocked(projectRepo.findMemberRole);
 const mockProjectRemoveMember    = vi.mocked(projectRepo.removeMember);
 
+const mockEmitToTeam = vi.mocked(emitToTeam);
 const mockEvictRoom  = vi.mocked(evictUserFromTeamRoom);
 const mockEvictRooms = vi.mocked(evictUserFromTeamRooms);
 
@@ -277,15 +281,15 @@ describe('project.service::kickProjectMember — eviction ordering', () => {
   });
 
   // ── Test F ──────────────────────────────────────────────────────────────
-  // Happy path: team IDs fetched before delete, eviction called with those IDs.
-  it('F: calls evictUserFromTeamRooms with the IDs returned by findTeamIdsByUserAndProject', async () => {
+  // Happy path: team memberships removed and eviction called with those IDs.
+  it('F: calls evictUserFromTeamRooms with the IDs returned by removeAllTeamMembershipsInProject', async () => {
     // Arrange
     mockFindProjectRole
       .mockResolvedValueOnce('OWNER')   // callerRole
       .mockResolvedValueOnce('MEMBER'); // targetRole
 
     const expectedTeamIds = ['team-alpha', 'team-beta'];
-    mockFindTeamIds.mockResolvedValue(expectedTeamIds);
+    mockRemoveAllTeamMemberships.mockResolvedValue(expectedTeamIds);
     mockProjectRemoveMember.mockResolvedValue(undefined);
 
     // Act
@@ -297,16 +301,16 @@ describe('project.service::kickProjectMember — eviction ordering', () => {
   });
 
   // ── Test G ──────────────────────────────────────────────────────────────
-  // Team ID snapshot is taken BEFORE the DB delete.
-  it('G: fetches team IDs BEFORE projectRepo.removeMember', async () => {
+  // Team memberships are removed BEFORE the project member row is deleted.
+  it('G: removes team memberships BEFORE projectRepo.removeMember', async () => {
     // Arrange
     mockFindProjectRole
       .mockResolvedValueOnce('OWNER')
       .mockResolvedValueOnce('MEMBER');
 
     const callOrder: string[] = [];
-    mockFindTeamIds.mockImplementation(async () => {
-      callOrder.push('db:findTeamIds');
+    mockRemoveAllTeamMemberships.mockImplementation(async () => {
+      callOrder.push('db:removeTeamMemberships');
       return ['team-x'];
     });
     mockProjectRemoveMember.mockImplementation(async () => {
@@ -319,19 +323,19 @@ describe('project.service::kickProjectMember — eviction ordering', () => {
     // Act
     await kickProjectMember(CALLER_ID, PROJECT_ID, TARGET_ID);
 
-    // Assert — ordering must be: findTeamIds → removeMember → evict
-    expect(callOrder).toEqual(['db:findTeamIds', 'db:removeMember', 'ws:evict']);
+    // Assert — ordering must be: removeTeamMemberships → removeMember → evict
+    expect(callOrder).toEqual(['db:removeTeamMemberships', 'db:removeMember', 'ws:evict']);
   });
 
   // ── Test H ──────────────────────────────────────────────────────────────
-  // DB delete throws → eviction must NOT be called.
-  it('H: does NOT call evictUserFromTeamRooms when DB deletion throws', async () => {
+  // DB project-member delete throws → eviction must NOT be called.
+  it('H: does NOT call evictUserFromTeamRooms when projectRepo.removeMember throws', async () => {
     // Arrange
     mockFindProjectRole
       .mockResolvedValueOnce('OWNER')
       .mockResolvedValueOnce('MEMBER');
 
-    mockFindTeamIds.mockResolvedValue(['team-x', 'team-y']);
+    mockRemoveAllTeamMemberships.mockResolvedValue(['team-x', 'team-y']);
     mockProjectRemoveMember.mockRejectedValue(new Error('DB timeout'));
 
     // Act
@@ -339,7 +343,7 @@ describe('project.service::kickProjectMember — eviction ordering', () => {
       kickProjectMember(CALLER_ID, PROJECT_ID, TARGET_ID)
     ).rejects.toThrow('DB timeout');
 
-    // Assert — eviction never attempted because delete failed
+    // Assert — eviction never attempted because project delete failed
     expect(mockEvictRooms).not.toHaveBeenCalled();
   });
 
@@ -352,7 +356,7 @@ describe('project.service::kickProjectMember — eviction ordering', () => {
       kickProjectMember(CALLER_ID, PROJECT_ID, TARGET_ID)
     ).rejects.toMatchObject({ statusCode: 403 });
 
-    expect(mockFindTeamIds).not.toHaveBeenCalled();
+    expect(mockRemoveAllTeamMemberships).not.toHaveBeenCalled();
     expect(mockProjectRemoveMember).not.toHaveBeenCalled();
     expect(mockEvictRooms).not.toHaveBeenCalled();
   });
@@ -364,7 +368,7 @@ describe('project.service::kickProjectMember — eviction ordering', () => {
       .mockResolvedValueOnce('OWNER')
       .mockResolvedValueOnce('MEMBER');
 
-    mockFindTeamIds.mockResolvedValue([]); // user is project member but not in any team
+    mockRemoveAllTeamMemberships.mockResolvedValue([]); // user is in no teams
     mockProjectRemoveMember.mockResolvedValue(undefined);
 
     await kickProjectMember(CALLER_ID, PROJECT_ID, TARGET_ID);
@@ -385,7 +389,49 @@ describe('project.service::kickProjectMember — eviction ordering', () => {
       kickProjectMember(CALLER_ID, PROJECT_ID, TARGET_ID)
     ).rejects.toMatchObject({ statusCode: 400 });
 
+    expect(mockRemoveAllTeamMemberships).not.toHaveBeenCalled();
     expect(mockProjectRemoveMember).not.toHaveBeenCalled();
+    expect(mockEvictRooms).not.toHaveBeenCalled();
+  });
+
+  // ── Test L ──────────────────────────────────────────────────────────────
+  // WS TEAM_MEMBER_REMOVED emitted for each team after successful DB operations.
+  it('L: emits TEAM_MEMBER_REMOVED for each team the user belonged to', async () => {
+    mockFindProjectRole
+      .mockResolvedValueOnce('OWNER')
+      .mockResolvedValueOnce('MEMBER');
+
+    const teamIds = ['team-alpha', 'team-beta'];
+    mockRemoveAllTeamMemberships.mockResolvedValue(teamIds);
+    mockProjectRemoveMember.mockResolvedValue(undefined);
+
+    await kickProjectMember(CALLER_ID, PROJECT_ID, TARGET_ID);
+
+    expect(mockEmitToTeam).toHaveBeenCalledTimes(teamIds.length);
+    for (const teamId of teamIds) {
+      expect(mockEmitToTeam).toHaveBeenCalledWith(
+        teamId,
+        'team.member_removed',
+        { teamId, userId: TARGET_ID }
+      );
+    }
+  });
+
+  // ── Test M ──────────────────────────────────────────────────────────────
+  // removeAllTeamMembershipsInProject throws → project membership NOT removed, no WS events.
+  it('M: does NOT remove project membership when removeAllTeamMembershipsInProject throws', async () => {
+    mockFindProjectRole
+      .mockResolvedValueOnce('OWNER')
+      .mockResolvedValueOnce('MEMBER');
+
+    mockRemoveAllTeamMemberships.mockRejectedValue(new Error('Team DB error'));
+
+    await expect(
+      kickProjectMember(CALLER_ID, PROJECT_ID, TARGET_ID)
+    ).rejects.toThrow('Team DB error');
+
+    expect(mockProjectRemoveMember).not.toHaveBeenCalled();
+    expect(mockEmitToTeam).not.toHaveBeenCalled();
     expect(mockEvictRooms).not.toHaveBeenCalled();
   });
 });

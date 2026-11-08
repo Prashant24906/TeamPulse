@@ -1,6 +1,7 @@
 import { AppError } from '../middleware/error.middleware';
 import * as teamRepo from '../repositories/team.repository';
 import * as joinRepo from '../repositories/teamJoinRequest.repository';
+import * as projectRepo from '../repositories/project.repository';
 import { emitToTeam, emitToUser } from '../websocket/emit';
 import { WS_EVENTS } from '../websocket/events';
 import type { UpdateJoinRequestInput } from '../validators/teamJoinRequest.validator';
@@ -102,6 +103,14 @@ export async function updateJoinRequest(
   }
 
   if (input.status === 'APPROVED') {
+    // Verify the requester is a member of the team's parent project before approving
+    const team = await teamRepo.findTeamById(teamId);
+    if (!team) throw new AppError(404, 'Team not found');
+    const projectRole = await projectRepo.findMemberRole(team.project_id, existingReq.user_id);
+    if (!projectRole) {
+      throw new AppError(403, 'User is not a member of the project this team belongs to');
+    }
+
     // Transactional approval (with SELECT FOR UPDATE to prevent concurrent overflow)
     const { request, userId } = await joinRepo.approveRequest(requestId, teamId);
 

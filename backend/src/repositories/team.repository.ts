@@ -181,6 +181,30 @@ export async function findTeamIdsByUserAndProject(
 }
 
 /**
+ * Bulk-delete all team_members rows for `userId` across every team that
+ * belongs to `projectId`. Returns the list of team IDs from which the user
+ * was removed (useful for WebSocket eviction).
+ *
+ * This is a system-level cascade operation (not user-initiated removal) and
+ * intentionally bypasses the service-layer OWNER guard — the user has already
+ * lost project membership, which is a higher authority than team ownership.
+ */
+export async function removeAllTeamMembershipsInProject(
+  projectId: string,
+  userId: string
+): Promise<string[]> {
+  const rows = await sql<{ team_id: string }[]>`
+    DELETE FROM team_members
+     WHERE user_id = ${userId}
+       AND team_id IN (
+         SELECT id FROM teams WHERE project_id = ${projectId}
+       )
+    RETURNING team_id
+  `;
+  return rows.map((r) => r.team_id);
+}
+
+/**
  * Transfer ownership atomically inside a serializable transaction.
  * - Demotes the outgoing owner to ADMIN.
  * - Promotes the incoming user to OWNER.
