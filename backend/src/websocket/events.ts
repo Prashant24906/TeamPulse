@@ -21,9 +21,11 @@ export const WS_EVENTS = {
   PROJECT_DELETED: 'project.deleted',
 
   // Task events
-  TASK_CREATED: 'task.created',
-  TASK_UPDATED: 'task.updated',
-  TASK_DELETED: 'task.deleted',
+  TASK_CREATED:  'task.created',
+  TASK_UPDATED:  'task.updated',
+  TASK_DELETED:  'task.deleted',
+  TASK_CLOSED:   'task.closed',
+  TASK_REOPENED: 'task.reopened',
 
   // Chat events
   MESSAGE_CREATED: 'message.created',

@@ -8,13 +8,16 @@ import {
   useUpdateMemberRole, useAddMember, useLeaveTeam,
 } from '@/hooks/useTeams';
 import { useAuth } from '@/hooks/useAuth';
-import { useTasks, useCreateTask, useUpdateTask, useDeleteTask } from '@/hooks/useTasks';
+import {
+  useTasks, useClosedTasks, useCreateTask, useUpdateTask,
+  useDeleteTask, useCloseTask, useReopenTask,
+} from '@/hooks/useTasks';
 import { useJoinRequests, useUpdateJoinRequest, useCreateTeamJoinRequest } from '@/hooks/useTeamDiscovery';
 import { ChatPanel } from '@/components/chat/ChatPanel';
 import {
   FolderOpen, Users, Plus, Trash2, ChevronRight,
   Loader2, AlertCircle, X, ArrowLeft, UserCheck, Inbox, Pencil,
-  ShieldCheck, UserPlus, LogOut,
+  ShieldCheck, UserPlus, LogOut, CheckCircle2, RotateCcw, Archive,
 } from 'lucide-react';
 import type { TeamRole } from '@/types/team';
 import type { Task, TaskStatus, TaskPriority } from '@/types/task';
@@ -199,16 +202,19 @@ export default function TeamDetailPage({
   const { data: team, isLoading: teamLoading } = useTeam(teamId);
   const { data: members, isLoading: membersLoading } = useTeamMembers(teamId);
   const { data: tasks, isLoading: tasksLoading } = useTasks(projectId, teamId);
+  const { data: closedTasks, isLoading: closedTasksLoading } = useClosedTasks(projectId, teamId);
   const { data: joinRequests } = useJoinRequests(teamId);
 
   const leaveTeam = useLeaveTeam(teamId);
   const deleteTask = useDeleteTask(teamId);
+  const closeTask = useCloseTask(teamId);
+  const reopenTask = useReopenTask(teamId);
   const updateJoinReq = useUpdateJoinRequest(teamId);
 
   const [taskModal, setTaskModal] = useState<{
     open: boolean; edit?: Task; defaultStatus?: TaskStatus;
   }>({ open: false });
-  const [activeTab, setActiveTab] = useState<'board' | 'members' | 'requests' | 'chat'>('board');
+  const [activeTab, setActiveTab] = useState<'board' | 'closed' | 'members' | 'requests' | 'chat'>('board');
 
   const myRole = team?.role ?? null;
   const isOwnerOrAdmin = myRole === 'OWNER' || myRole === 'ADMIN';
@@ -344,7 +350,7 @@ export default function TeamDetailPage({
 
         {/* ── Tabs ── */}
         <div className="flex gap-1 mt-4">
-          {(['board', 'members', 'requests', 'chat'] as const).map((tab) => (
+          {(['board', 'closed', 'members', 'requests', 'chat'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -355,6 +361,8 @@ export default function TeamDetailPage({
             >
               {tab === 'requests'
                 ? `Requests${joinRequests?.length ? ` (${joinRequests.length})` : ''}`
+                : tab === 'closed'
+                ? `Closed Tasks${closedTasks?.length ? ` (${closedTasks.length})` : ''}`
                 : tab.charAt(0).toUpperCase() + tab.slice(1)}
             </button>
           ))}
@@ -398,6 +406,15 @@ export default function TeamDetailPage({
                         <div className="flex items-start justify-between gap-2">
                           <p className="text-sm font-medium text-gray-800 leading-snug">{task.name}</p>
                           <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition flex-shrink-0">
+                            <button
+                              onClick={() => {
+                                if (confirm('Close this task?')) closeTask.mutate(task.id);
+                              }}
+                              title="Close Task"
+                              className="text-gray-400 hover:text-amber-600 p-1"
+                            >
+                              <CheckCircle2 size={12} />
+                            </button>
                             <button onClick={() => setTaskModal({ open: true, edit: task })}
                               className="text-gray-400 hover:text-emerald-600 p-1"><Pencil size={12} /></button>
                             {isOwnerOrAdmin && (
@@ -432,6 +449,76 @@ export default function TeamDetailPage({
                   </button>
                 </div>
               ))
+            )}
+          </div>
+        )}
+
+        {/* Closed Tasks */}
+        {activeTab === 'closed' && (
+          <div className="p-8 max-w-4xl">
+            {closedTasksLoading ? (
+              <div className="flex items-center gap-2 text-gray-400 py-12 justify-center">
+                <Loader2 className="animate-spin" size={18} /><span>Loading closed tasks…</span>
+              </div>
+            ) : !closedTasks?.length ? (
+              <div className="flex flex-col items-center gap-2 py-16 text-gray-400">
+                <Archive size={32} className="text-gray-300" />
+                <p className="text-sm">No closed tasks.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {closedTasks.map((task) => (
+                  <div
+                    key={task.id}
+                    className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow transition flex flex-col md:flex-row md:items-center justify-between gap-4"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full border text-gray-500 bg-gray-100 border-gray-200">
+                          CLOSED
+                        </span>
+                        <h3 className="text-sm font-semibold text-gray-900 truncate">{task.name}</h3>
+                      </div>
+                      {task.description && (
+                        <p className="text-xs text-gray-500 mt-1 line-clamp-2">{task.description}</p>
+                      )}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3 pt-3 border-t border-gray-100 text-xs text-gray-500">
+                        <div>
+                          <span className="text-gray-400 block">Created by:</span>
+                          <span className="font-medium text-gray-700">{task.created_by_name || 'Unknown'}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-400 block">Original Assignee:</span>
+                          <span className="font-medium text-gray-700">{task.assigned_to_name || 'Unassigned'}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-400 block">Closed by:</span>
+                          <span className="font-medium text-gray-700">{task.closed_by_name || 'Unknown'}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-400 block">Closure Date:</span>
+                          <span className="font-medium text-gray-700">
+                            {task.closed_at ? new Date(task.closed_at).toLocaleString() : 'N/A'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {isOwnerOrAdmin && (
+                      <div className="flex items-center gap-2 flex-shrink-0 self-end md:self-center">
+                        <button
+                          onClick={() => reopenTask.mutate(task.id)}
+                          disabled={reopenTask.isPending}
+                          className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 px-3 py-1.5 rounded-lg transition disabled:opacity-50"
+                        >
+                          <RotateCcw size={13} />
+                          Reopen
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         )}

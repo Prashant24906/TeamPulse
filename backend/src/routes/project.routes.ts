@@ -58,8 +58,9 @@ router.post('/:projectId/teams/:teamId/messages', messageController.sendMessage)
 // Tasks nested under project > team
 // ---------------------------------------------------------------------------
 
-router.post('/:projectId/teams/:teamId/tasks',  taskController.createTask);
-router.get('/:projectId/teams/:teamId/tasks',   taskController.getTasksByTeam);
+router.post('/:projectId/teams/:teamId/tasks',         taskController.createTask);
+router.get('/:projectId/teams/:teamId/tasks/closed',   taskController.getClosedTasks);
+router.get('/:projectId/teams/:teamId/tasks',          taskController.getTasksByTeam);
 
 // ---------------------------------------------------------------------------
 // Project join requests

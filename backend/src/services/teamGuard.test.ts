@@ -35,11 +35,14 @@ vi.mock('../repositories/team.repository', () => ({
 }));
 
 vi.mock('../repositories/task.repository', () => ({
-  findTaskById:       vi.fn(),
-  findTasksByTeamId:  vi.fn(),
-  createTask:         vi.fn(),
-  updateTask:         vi.fn(),
-  deleteTask:         vi.fn(),
+  findTaskById:              vi.fn(),
+  findTasksByTeamId:         vi.fn(),
+  findClosedTasksByTeamId:   vi.fn(),
+  createTask:                vi.fn(),
+  updateTask:                vi.fn(),
+  deleteTask:                vi.fn(),
+  closeTask:                 vi.fn(),
+  reopenTask:                vi.fn(),
 }));
 
 vi.mock('../repositories/teamJoinRequest.repository', () => ({

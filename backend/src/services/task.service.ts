@@ -98,7 +98,7 @@ export async function createTask(
 }
 
 // ---------------------------------------------------------------------------
-// Get tasks by team — any team member
+// Get tasks by team — any team member (excludes CLOSED tasks)
 // ---------------------------------------------------------------------------
 
 export async function getTasksByTeam(userId: string, teamId: string, projectId?: string) {
@@ -186,6 +186,73 @@ export async function updateTask(
 }
 
 // ---------------------------------------------------------------------------
+// Close task — any team member
+// ---------------------------------------------------------------------------
+
+export async function closeTask(userId: string, taskId: string) {
+  const { task } = await resolveTaskAndRole(taskId, userId);
+
+  if (task.status === 'CLOSED') {
+    throw new AppError(409, 'Task is already closed');
+  }
+
+  const closed = await taskRepo.closeTask(task.id, userId);
+
+  const team = await teamRepo.findTeamById(task.team_id);
+  if (team) {
+    emitToTeam(team.id, WS_EVENTS.TASK_CLOSED, {
+      teamId:    team.id,
+      projectId: team.project_id,
+      taskId:    task.id,
+    });
+  }
+
+  return closed;
+}
+
+// ---------------------------------------------------------------------------
+// Reopen task — OWNER or ADMIN only
+// ---------------------------------------------------------------------------
+
+export async function reopenTask(userId: string, taskId: string) {
+  const { task, role } = await resolveTaskAndRole(taskId, userId);
+
+  if (role === 'MEMBER') {
+    throw new AppError(403, 'Only OWNER or ADMIN can reopen tasks');
+  }
+
+  if (task.status !== 'CLOSED') {
+    throw new AppError(409, 'Task is not closed');
+  }
+
+  const reopened = await taskRepo.reopenTask(task.id);
+
+  const team = await teamRepo.findTeamById(task.team_id);
+  if (team) {
+    emitToTeam(team.id, WS_EVENTS.TASK_REOPENED, {
+      teamId:    team.id,
+      projectId: team.project_id,
+      taskId:    task.id,
+    });
+  }
+
+  return reopened;
+}
+
+// ---------------------------------------------------------------------------
+// Get closed tasks for a team — any team member
+// ---------------------------------------------------------------------------
+
+export async function getClosedTasks(userId: string, teamId: string, projectId?: string) {
+  if (projectId) await assertTeamBelongsToProject(teamId, projectId);
+
+  const role = await teamRepo.findMemberRole(teamId, userId);
+  if (!role) throw new AppError(403, 'You are not a member of this team');
+
+  return taskRepo.findClosedTasksByTeamId(teamId);
+}
+
+// ---------------------------------------------------------------------------
 // Delete task — OWNER or ADMIN only
 // ---------------------------------------------------------------------------
 
@@ -211,4 +278,3 @@ export async function deleteTask(userId: string, taskId: string) {
     });
   }
 }
-

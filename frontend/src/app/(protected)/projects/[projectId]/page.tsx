@@ -281,9 +281,15 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
                       <div className="h-10 w-10 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0">
                         <Users size={18} className="text-emerald-600" />
                       </div>
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${ROLE_COLORS[team.role]}`}>
-                        {team.role}
-                      </span>
+                      {team.role ? (
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${ROLE_COLORS[team.role]}`}>
+                          {team.role}
+                        </span>
+                      ) : (
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full text-gray-400 bg-gray-50 border border-gray-200">
+                          Not a member
+                        </span>
+                      )}
                     </div>
                     <h3 className="text-gray-900 font-semibold group-hover:text-emerald-600 transition-colors">
                       {team.name}

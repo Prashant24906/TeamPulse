@@ -28,15 +28,38 @@ export function useSocket() {
     connectSocket();
     const socket = getSocket();
 
-    // Task events — invalidate the correct project's task list
-    socket.on('task.created', (payload: { projectId: string }) => {
+    // Task events — invalidate the correct project's and team's task list
+    socket.on('task.created', (payload: { projectId: string; teamId?: string }) => {
+      if (payload.teamId) qc.invalidateQueries({ queryKey: ['tasks', payload.teamId] });
       qc.invalidateQueries({ queryKey: ['tasks', payload.projectId] });
     });
-    socket.on('task.updated', (payload: { projectId: string }) => {
+    socket.on('task.updated', (payload: { projectId: string; teamId?: string }) => {
+      if (payload.teamId) {
+        qc.invalidateQueries({ queryKey: ['tasks', payload.teamId] });
+        qc.invalidateQueries({ queryKey: ['closed-tasks', payload.teamId] });
+      }
       qc.invalidateQueries({ queryKey: ['tasks', payload.projectId] });
     });
-    socket.on('task.deleted', (payload: { projectId: string }) => {
+    socket.on('task.deleted', (payload: { projectId: string; teamId?: string }) => {
+      if (payload.teamId) {
+        qc.invalidateQueries({ queryKey: ['tasks', payload.teamId] });
+        qc.invalidateQueries({ queryKey: ['closed-tasks', payload.teamId] });
+      }
       qc.invalidateQueries({ queryKey: ['tasks', payload.projectId] });
+    });
+    socket.on('task.closed', (payload: { projectId?: string; teamId: string }) => {
+      if (payload.teamId) {
+        qc.invalidateQueries({ queryKey: ['tasks', payload.teamId] });
+        qc.invalidateQueries({ queryKey: ['closed-tasks', payload.teamId] });
+      }
+      if (payload.projectId) qc.invalidateQueries({ queryKey: ['tasks', payload.projectId] });
+    });
+    socket.on('task.reopened', (payload: { projectId?: string; teamId: string }) => {
+      if (payload.teamId) {
+        qc.invalidateQueries({ queryKey: ['tasks', payload.teamId] });
+        qc.invalidateQueries({ queryKey: ['closed-tasks', payload.teamId] });
+      }
+      if (payload.projectId) qc.invalidateQueries({ queryKey: ['tasks', payload.projectId] });
     });
 
     // Project events — invalidate the team's project list
@@ -156,6 +179,8 @@ export function useSocket() {
       socket.off('task.created');
       socket.off('task.updated');
       socket.off('task.deleted');
+      socket.off('task.closed');
+      socket.off('task.reopened');
       socket.off('project.created');
       socket.off('project.updated');
       socket.off('project.deleted');

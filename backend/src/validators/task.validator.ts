@@ -1,7 +1,9 @@
 import { z } from 'zod';
 
-const taskStatus   = z.enum(['TODO', 'IN_PROGRESS', 'COMPLETED']);
-const taskPriority = z.enum(['LOW', 'MEDIUM', 'HIGH']);
+// CLOSED is a valid DB status but must only be set via the dedicated /close endpoint,
+// not through the generic PATCH update endpoint.
+const taskStatusForUpdate = z.enum(['TODO', 'IN_PROGRESS', 'COMPLETED']);
+const taskPriority        = z.enum(['LOW', 'MEDIUM', 'HIGH']);
 
 // ---------------------------------------------------------------------------
 // Create task
@@ -18,7 +20,7 @@ export const createTaskSchema = z.object({
 
   assigned_to: z.string().uuid('assigned_to must be a valid UUID').optional(),
 
-  status: taskStatus.default('TODO'),
+  status: taskStatusForUpdate.default('TODO'),
 
   priority: taskPriority.default('MEDIUM'),
 
@@ -37,7 +39,7 @@ export const updateTaskSchema = z
     name:        z.string().trim().min(2).max(200).optional(),
     description: z.string().trim().max(2000).optional(),
     assigned_to: z.string().uuid().nullable().optional(),
-    status:      taskStatus.optional(),
+    status:      taskStatusForUpdate.optional(),
     priority:    taskPriority.optional(),
     due_date:    z.string().datetime().nullable().optional(),
   })
@@ -48,4 +50,3 @@ export const updateTaskSchema = z
 
 export type CreateTaskInput = z.infer<typeof createTaskSchema>;
 export type UpdateTaskInput = z.infer<typeof updateTaskSchema>;
-

@@ -47,12 +47,13 @@ export async function getMyProjects(userId: string) {
 }
 
 // ---------------------------------------------------------------------------
-// Get members of a project — caller must be a member
+// Get members of a project — OWNER or ADMIN only (returns emails and roles)
 // ---------------------------------------------------------------------------
 
 export async function getProjectMembers(userId: string, projectId: string) {
   const role = await projectRepo.findMemberRole(projectId, userId);
   if (!role) throw new AppError(403, 'You are not a member of this project');
+  if (role === 'MEMBER') throw new AppError(403, 'Only project OWNER or ADMIN can view the member list');
   return projectRepo.findMembersByProject(projectId);
 }
 

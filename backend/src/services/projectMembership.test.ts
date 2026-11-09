@@ -136,7 +136,7 @@ import { evictUserFromTeamRooms }  from '../websocket/rooms';
 
 import { addMember }                        from './team.service';
 import { updateJoinRequest }               from './teamJoinRequest.service';
-import { kickProjectMember }               from './project.service';
+import { kickProjectMember, getProjectMembers } from './project.service';
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -484,6 +484,75 @@ describe('project.service::kickProjectMember — cascade team membership cleanup
 
     expect(teamRepo.removeAllTeamMembershipsInProject).not.toHaveBeenCalled();
     expect(projectRepo.removeMember).not.toHaveBeenCalled();
+  });
+});
+
+// ===========================================================================
+// D. project.service::getProjectMembers — Issue 5 authorization fix
+// ===========================================================================
+
+const MEMBER_LIST = [
+  { user_id: CALLER_ID, name: 'Alice', email: 'alice@example.com', role: 'OWNER', joined_on: new Date() },
+  { user_id: TARGET_ID, name: 'Bob',   email: 'bob@example.com',   role: 'MEMBER', joined_on: new Date() },
+];
+
+describe('project.service::getProjectMembers — OWNER/ADMIN only', () => {
+
+  // ── Test D1 ──────────────────────────────────────────────────────────────
+  it('D1: OWNER can retrieve the member list', async () => {
+    setupProjectRoles({ [CALLER_ID]: 'OWNER' });
+    vi.mocked(projectRepo.findMembersByProject).mockResolvedValue(MEMBER_LIST as any);
+
+    const result = await getProjectMembers(CALLER_ID, PROJECT_ID);
+
+    expect(result).toEqual(MEMBER_LIST);
+    expect(projectRepo.findMembersByProject).toHaveBeenCalledWith(PROJECT_ID);
+  });
+
+  // ── Test D2 ──────────────────────────────────────────────────────────────
+  it('D2: ADMIN can retrieve the member list', async () => {
+    setupProjectRoles({ [CALLER_ID]: 'ADMIN' });
+    vi.mocked(projectRepo.findMembersByProject).mockResolvedValue(MEMBER_LIST as any);
+
+    const result = await getProjectMembers(CALLER_ID, PROJECT_ID);
+
+    expect(result).toEqual(MEMBER_LIST);
+    expect(projectRepo.findMembersByProject).toHaveBeenCalledWith(PROJECT_ID);
+  });
+
+  // ── Test D3 ──────────────────────────────────────────────────────────────
+  it('D3: MEMBER is rejected with 403 — cannot access email addresses of all members', async () => {
+    setupProjectRoles({ [CALLER_ID]: 'MEMBER' });
+
+    await expect(
+      getProjectMembers(CALLER_ID, PROJECT_ID)
+    ).rejects.toMatchObject({ statusCode: 403 });
+
+    expect(projectRepo.findMembersByProject).not.toHaveBeenCalled();
+  });
+
+  // ── Test D4 ──────────────────────────────────────────────────────────────
+  it('D4: non-project-member is rejected with 403', async () => {
+    setupProjectRoles({ [CALLER_ID]: null }); // not a member at all
+
+    await expect(
+      getProjectMembers(CALLER_ID, PROJECT_ID)
+    ).rejects.toMatchObject({ statusCode: 403 });
+
+    expect(projectRepo.findMembersByProject).not.toHaveBeenCalled();
+  });
+
+  // ── Test D5 ──────────────────────────────────────────────────────────────
+  it('D5: MEMBER rejection error message mentions OWNER or ADMIN', async () => {
+    setupProjectRoles({ [CALLER_ID]: 'MEMBER' });
+
+    let message = '';
+    try {
+      await getProjectMembers(CALLER_ID, PROJECT_ID);
+    } catch (err: any) {
+      message = err.message ?? '';
+    }
+    expect(message.toLowerCase()).toMatch(/owner|admin/);
   });
 });
 

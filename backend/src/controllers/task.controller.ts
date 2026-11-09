@@ -59,6 +59,27 @@ export async function getTasksByTeam(
 }
 
 // ---------------------------------------------------------------------------
+// GET /api/projects/:projectId/teams/:teamId/tasks/closed
+// ---------------------------------------------------------------------------
+
+export async function getClosedTasks(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const tasks = await taskService.getClosedTasks(
+      req.user!.userId,
+      req.params.teamId as string,
+      projectId(req)
+    );
+    res.status(200).json({ status: 'success', data: { tasks } });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // GET /api/tasks/:taskId
 // ---------------------------------------------------------------------------
 
@@ -94,6 +115,46 @@ export async function updateTask(
       req.user!.userId,
       req.params.taskId as string,
       result.data
+    );
+    res.status(200).json({ status: 'success', data: { task } });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// POST /api/tasks/:taskId/close
+// ---------------------------------------------------------------------------
+
+export async function closeTask(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const task = await taskService.closeTask(
+      req.user!.userId,
+      req.params.taskId as string
+    );
+    res.status(200).json({ status: 'success', data: { task } });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// POST /api/tasks/:taskId/reopen
+// ---------------------------------------------------------------------------
+
+export async function reopenTask(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const task = await taskService.reopenTask(
+      req.user!.userId,
+      req.params.taskId as string
     );
     res.status(200).json({ status: 'success', data: { task } });
   } catch (err) {
