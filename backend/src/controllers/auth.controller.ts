@@ -45,7 +45,8 @@ export async function register(
 
     res.status(201).json({
       status: 'success',
-      data: { user },
+      data: { user, token },
+      token,
       // token also returned for non-browser clients (e.g. curl, Postman, mobile)
     });
   } catch (err) {
@@ -75,7 +76,8 @@ export async function login(
 
     res.status(200).json({
       status: 'success',
-      data: { user },
+      data: { user, token },
+      token,
     });
   } catch (err) {
     next(err);

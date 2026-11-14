@@ -42,7 +42,7 @@ function resolveToken(req: Request): string | null {
   // 2. Authorization header fallback
   const authHeader = req.headers.authorization;
   if (authHeader?.startsWith('Bearer ')) {
-    return authHeader.slice(7);
+    return authHeader.slice(7).trim();
   }
 
   return null;

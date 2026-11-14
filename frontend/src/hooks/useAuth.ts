@@ -1,12 +1,17 @@
 'use client';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import api from '@/lib/api';
+import api, { setStoredToken, clearStoredToken } from '@/lib/api';
+import { disconnectSocket } from '@/lib/socket';
 import type { User } from '@/types/user';
 
 interface AuthResponse {
   status: string;
-  data: { user: User };
+  data: {
+    user: User;
+    token?: string;
+  };
+  token?: string;
 }
 
 export function useAuth() {
@@ -26,6 +31,10 @@ export function useLogin() {
   return useMutation({
     mutationFn: async (data: { email: string; password: string }) => {
       const res = await api.post<AuthResponse>('/auth/login', data);
+      const token = res.data.data?.token || res.data.token;
+      if (token) {
+        setStoredToken(token);
+      }
       return res.data.data.user;
     },
     onSuccess: (user) => {
@@ -38,6 +47,10 @@ export function useRegister() {
   return useMutation({
     mutationFn: async (data: { name: string; username: string; email: string; password: string }) => {
       const res = await api.post<AuthResponse>('/auth/register', data);
+      const token = res.data.data?.token || res.data.token;
+      if (token) {
+        setStoredToken(token);
+      }
       return res.data.data.user;
     },
   });
@@ -47,9 +60,15 @@ export function useLogout() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async () => {
-      await api.post('/auth/logout');
+      try {
+        await api.post('/auth/logout');
+      } catch {
+        // Proceed with local logout cleanup even if backend request fails
+      }
     },
     onSuccess: () => {
+      clearStoredToken();
+      disconnectSocket();
       queryClient.clear();
       window.location.href = '/login';
     },
