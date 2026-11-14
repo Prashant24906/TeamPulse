@@ -56,7 +56,7 @@ function getInitials(name: string) {
 function Alert({ type, message }: { type: 'success' | 'error'; message: string }) {
   return (
     <div
-      className={`flex items-center gap-2.5 rounded-xl px-4 py-3 text-sm font-medium border ${
+      className={`flex items-center gap-2.5 rounded-xl px-4 py-3 text-xs sm:text-sm font-medium border ${
         type === 'success'
           ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
           : 'bg-red-50 border-red-200 text-red-600'
@@ -67,7 +67,7 @@ function Alert({ type, message }: { type: 'success' | 'error'; message: string }
       ) : (
         <AlertCircle size={16} className="flex-shrink-0" />
       )}
-      {message}
+      <span>{message}</span>
     </div>
   );
 }
@@ -115,13 +115,13 @@ function ProfileForm() {
   };
 
   return (
-    <section className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+    <section className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-6 shadow-sm">
       <div className="flex items-center gap-3 mb-5">
-        <div className="p-2 rounded-lg bg-emerald-50">
+        <div className="p-2 rounded-lg bg-emerald-50 flex-shrink-0">
           <Edit3 size={17} className="text-emerald-600" />
         </div>
         <div>
-          <h2 className="text-base font-bold text-gray-900">Profile Information</h2>
+          <h2 className="text-sm sm:text-base font-bold text-gray-900">Profile Information</h2>
           <p className="text-xs text-gray-400 mt-0.5">Update your display name and username</p>
         </div>
       </div>
@@ -130,7 +130,7 @@ function ProfileForm() {
 
       <form onSubmit={handleSubmit} className="space-y-4" id="profile-form">
         <div>
-          <label htmlFor="profile-name" className="block text-sm font-medium text-gray-700 mb-1.5">
+          <label htmlFor="profile-name" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5">
             Display Name
           </label>
           <div className="relative">
@@ -147,7 +147,7 @@ function ProfileForm() {
         </div>
 
         <div>
-          <label htmlFor="profile-username" className="block text-sm font-medium text-gray-700 mb-1.5">
+          <label htmlFor="profile-username" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5">
             Username
           </label>
           <div className="relative">
@@ -164,7 +164,7 @@ function ProfileForm() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1.5">Email Address</label>
+          <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5">Email Address</label>
           <div className="relative">
             <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
@@ -176,12 +176,12 @@ function ProfileForm() {
           <p className="mt-1 text-xs text-gray-400">Email cannot be changed.</p>
         </div>
 
-        <div className="pt-1">
+        <div className="pt-2">
           <button
             id="save-profile-btn"
             type="submit"
             disabled={!isDirty || updateProfile.isPending}
-            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold px-6 py-2.5 rounded-xl transition shadow-sm"
           >
             {updateProfile.isPending && <Loader2 size={14} className="animate-spin" />}
             Save Changes
@@ -240,13 +240,13 @@ function PasswordForm() {
     'w-full pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 text-gray-900 text-sm outline-none transition';
 
   return (
-    <section className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+    <section className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-6 shadow-sm">
       <div className="flex items-center gap-3 mb-5">
-        <div className="p-2 rounded-lg bg-amber-50">
+        <div className="p-2 rounded-lg bg-amber-50 flex-shrink-0">
           <Lock size={17} className="text-amber-600" />
         </div>
         <div>
-          <h2 className="text-base font-bold text-gray-900">Change Password</h2>
+          <h2 className="text-sm sm:text-base font-bold text-gray-900">Change Password</h2>
           <p className="text-xs text-gray-400 mt-0.5">Keep your account secure</p>
         </div>
       </div>
@@ -262,7 +262,7 @@ function PasswordForm() {
           };
           return (
             <div key={field}>
-              <label htmlFor={`pwd-${field}`} className="block text-sm font-medium text-gray-700 mb-1.5">
+              <label htmlFor={`pwd-${field}`} className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5">
                 {labels[field]}
               </label>
               <div className="relative">
@@ -287,19 +287,19 @@ function PasswordForm() {
             id="show-passwords"
             checked={showPass}
             onChange={(e) => setShowPass(e.target.checked)}
-            className="accent-emerald-600"
+            className="accent-emerald-600 rounded"
           />
           <label htmlFor="show-passwords" className="text-xs text-gray-500 cursor-pointer select-none">
             Show passwords
           </label>
         </div>
 
-        <div className="pt-1">
+        <div className="pt-2">
           <button
             id="change-password-btn"
             type="submit"
             disabled={changePassword.isPending}
-            className="flex items-center gap-2 bg-amber-600 hover:bg-amber-500 disabled:opacity-40 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-amber-600 hover:bg-amber-500 disabled:opacity-40 text-white text-sm font-semibold px-6 py-2.5 rounded-xl transition shadow-sm"
           >
             {changePassword.isPending && <Loader2 size={14} className="animate-spin" />}
             Change Password
@@ -320,7 +320,7 @@ export default function ProfilePage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-[60vh]">
         <Loader2 className="animate-spin text-emerald-500" size={28} />
       </div>
     );
@@ -340,54 +340,60 @@ export default function ProfilePage() {
   ];
 
   return (
-    <div className="max-w-3xl mx-auto p-8">
+    <div className="max-w-3xl mx-auto p-4 sm:p-6 md:p-8">
       {/* ── Page header ── */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Profile</h1>
-        <p className="mt-1 text-gray-500 text-sm">Manage your personal information and security.</p>
+      <div className="mb-6 sm:mb-8">
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Profile</h1>
+        <p className="mt-1 text-gray-500 text-xs sm:text-sm">Manage your personal information and security.</p>
       </div>
 
       {/* ── Hero card ── */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm mb-6">
-        <div className="flex items-center gap-5">
-          {/* Avatar */}
-          <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-400 flex items-center justify-center flex-shrink-0 shadow-md">
-            <span className="text-white text-xl font-bold tracking-wide">
-              {user ? getInitials(user.name) : '?'}
-            </span>
-          </div>
+      <div className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-6 shadow-sm mb-5 sm:mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5 sm:gap-4 min-w-0">
+            {/* Avatar */}
+            <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-400 flex items-center justify-center flex-shrink-0 shadow-md">
+              <span className="text-white text-lg sm:text-xl font-bold tracking-wide">
+                {user ? getInitials(user.name) : '?'}
+              </span>
+            </div>
 
-          <div className="flex-1 min-w-0">
-            <h2 className="text-lg font-bold text-gray-900 truncate">{user?.name}</h2>
-            <div className="flex flex-wrap gap-3 mt-1">
-              <span className="flex items-center gap-1.5 text-sm text-gray-500">
-                <AtSign size={13} />
-                {user?.username}
-              </span>
-              <span className="flex items-center gap-1.5 text-sm text-gray-500">
-                <Mail size={13} />
-                {user?.email}
-              </span>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <h2 className="text-base sm:text-lg font-bold text-gray-900 truncate">{user?.name}</h2>
+                <div className="sm:hidden flex items-center gap-1 bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0">
+                  <Shield size={10} />
+                  Verified
+                </div>
+              </div>
+              <p className="text-xs text-gray-400 truncate flex items-center gap-1 mt-0.5">
+                <AtSign size={12} /> {user?.username}
+              </p>
             </div>
           </div>
 
-          {/* Verified badge */}
-          <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold px-3 py-1.5 rounded-full flex-shrink-0">
-            <Shield size={12} />
-            Verified
+          <div className="flex flex-col sm:items-end gap-1.5 pt-1 sm:pt-0 border-t sm:border-t-0 border-gray-100">
+            <span className="flex items-center gap-1.5 text-xs text-gray-500 truncate">
+              <Mail size={13} className="text-gray-400 flex-shrink-0" />
+              {user?.email}
+            </span>
+            <div className="hidden sm:flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold px-3 py-1 rounded-full flex-shrink-0">
+              <Shield size={12} />
+              Verified
+            </div>
           </div>
         </div>
 
         {/* Stats row */}
-        <div className="mt-5 pt-5 border-t border-gray-100 grid grid-cols-3 gap-4">
+        <div className="mt-5 pt-4 sm:pt-5 border-t border-gray-100 grid grid-cols-3 gap-2 sm:gap-4">
           {stats.map(({ label, value, icon: Icon, color }) => (
-            <div key={label} className="flex items-center gap-3">
-              <div className={`p-2 rounded-lg ${color.split(' ')[1]}`}>
+            <div key={label} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-2 rounded-xl bg-gray-50/60 sm:bg-transparent">
+              <div className={`p-2 rounded-lg ${color.split(' ')[1]} self-start sm:self-center`}>
                 <Icon size={15} className={color.split(' ')[0]} />
               </div>
-              <div>
-                <p className="text-sm font-bold text-gray-900">{value}</p>
-                <p className="text-xs text-gray-400">{label}</p>
+              <div className="min-w-0">
+                <p className="text-xs sm:text-sm font-bold text-gray-900 truncate">{value}</p>
+                <p className="text-[10px] sm:text-xs text-gray-400 truncate">{label}</p>
               </div>
             </div>
           ))}
@@ -395,15 +401,15 @@ export default function ProfilePage() {
       </div>
 
       {/* ── Member since info ── */}
-      <div className="bg-white border border-gray-200 rounded-2xl px-5 py-4 shadow-sm mb-6 flex items-center gap-3">
+      <div className="bg-white border border-gray-200 rounded-2xl px-4 sm:px-5 py-3.5 sm:py-4 shadow-sm mb-5 sm:mb-6 flex items-center gap-3">
         <Calendar size={15} className="text-gray-400 flex-shrink-0" />
-        <span className="text-sm text-gray-500">
-          Account created in <span className="font-medium text-gray-700">{memberSince}</span>
+        <span className="text-xs sm:text-sm text-gray-500">
+          Account created in <span className="font-semibold text-gray-700">{memberSince}</span>
         </span>
       </div>
 
       {/* ── Edit forms ── */}
-      <div className="space-y-5">
+      <div className="space-y-4 sm:space-y-5">
         <ProfileForm />
         <PasswordForm />
       </div>

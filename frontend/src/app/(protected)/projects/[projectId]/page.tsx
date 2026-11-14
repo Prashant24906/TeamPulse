@@ -3,7 +3,10 @@
 import { useState, use } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useProject, useProjectTeams, useCreateTeam, useDeleteProject, useProjectMembers, useUpdateProjectMemberRole, useKickProjectMember } from '@/hooks/useProjects';
+import {
+  useProject, useProjectTeams, useCreateTeam, useDeleteProject,
+  useProjectMembers, useUpdateProjectMemberRole, useKickProjectMember,
+} from '@/hooks/useProjects';
 import type { ProjectMember } from '@/hooks/useProjects';
 import { useProjectJoinRequests, useResolveProjectJoinRequest } from '@/hooks/useProjectDiscovery';
 import {
@@ -57,32 +60,32 @@ function CreateTeamModal({ projectId, onClose }: { projectId: string; onClose: (
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm px-4">
-      <div className="bg-white border border-gray-200 rounded-2xl w-full max-w-md p-6 shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+      <div className="bg-white border border-gray-200 rounded-2xl w-full max-w-md p-5 sm:p-6 shadow-xl">
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-bold text-gray-900">New Team</h2>
+          <h2 className="text-base sm:text-lg font-bold text-gray-900">New Team</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-700 transition"><X size={18} /></button>
         </div>
 
         {errors.general && (
-          <div className="mb-4 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">{errors.general}</div>
+          <div className="mb-4 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-xs sm:text-sm text-red-600">{errors.general}</div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4" id="create-team-form">
           <div>
-            <label htmlFor="team-name" className="block text-sm font-medium text-gray-700 mb-1.5">Team Name</label>
+            <label htmlFor="team-name" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5">Team Name</label>
             <input
               id="team-name"
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
-              className="w-full rounded-lg bg-white border border-gray-300 px-4 py-2.5 text-gray-900 placeholder-gray-400 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition"
+              className="w-full rounded-xl bg-white border border-gray-300 px-4 py-2.5 text-gray-900 placeholder-gray-400 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 text-sm transition"
               placeholder="e.g. Backend Team"
               autoFocus
             />
             {errors.name && <p className="mt-1 text-xs text-red-500">{errors.name}</p>}
           </div>
           <div>
-            <label htmlFor="team-size" className="block text-sm font-medium text-gray-700 mb-1.5">Max Members</label>
+            <label htmlFor="team-size" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5">Max Members</label>
             <input
               id="team-size"
               type="number"
@@ -90,19 +93,19 @@ function CreateTeamModal({ projectId, onClose }: { projectId: string; onClose: (
               max={100}
               value={form.max_size}
               onChange={(e) => setForm({ ...form, max_size: e.target.value })}
-              className="w-full rounded-lg bg-white border border-gray-300 px-4 py-2.5 text-gray-900 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition"
+              className="w-full rounded-xl bg-white border border-gray-300 px-4 py-2.5 text-gray-900 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 text-sm transition"
             />
             {errors.max_size && <p className="mt-1 text-xs text-red-500">{errors.max_size}</p>}
           </div>
           <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="flex-1 rounded-lg border border-gray-200 px-4 py-2.5 text-gray-600 hover:bg-gray-50 transition text-sm font-medium">
+            <button type="button" onClick={onClose} className="flex-1 rounded-xl border border-gray-200 px-4 py-2.5 text-gray-600 hover:bg-gray-50 transition text-sm font-medium">
               Cancel
             </button>
             <button
               id="create-team-submit"
               type="submit"
               disabled={createTeam.isPending}
-              className="flex-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 px-4 py-2.5 text-white font-semibold transition text-sm"
+              className="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 px-4 py-2.5 text-white font-semibold transition text-sm shadow-sm"
             >
               {createTeam.isPending ? 'Creating…' : 'Create Team'}
             </button>
@@ -120,7 +123,6 @@ function CreateTeamModal({ projectId, onClose }: { projectId: string; onClose: (
 export default function ProjectDetailPage({ params }: { params: Promise<{ projectId: string }> }) {
   const { projectId } = use(params);
   const router = useRouter();
-
 
   const { data: project, isLoading: projectLoading, isError: projectError } = useProject(projectId);
   const { data: teams,   isLoading: teamsLoading,   isError: teamsError }   = useProjectTeams(projectId);
@@ -149,7 +151,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
 
   if (projectLoading) {
     return (
-      <div className="flex items-center gap-2 text-gray-400 py-12 justify-center">
+      <div className="flex items-center gap-2 text-gray-400 py-16 justify-center">
         <Loader2 className="animate-spin" size={20} /><span>Loading project…</span>
       </div>
     );
@@ -157,43 +159,49 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
 
   if (projectError || !project) {
     return (
-      <div className="flex flex-col items-center gap-3 text-gray-500 py-12">
-        <AlertCircle size={24} className="text-red-400" />
+      <div className="flex flex-col items-center gap-3 text-gray-500 py-16 text-center px-4">
+        <AlertCircle size={28} className="text-red-400" />
         <p className="text-sm">Project not found or access denied.</p>
-        <Link href="/projects" className="text-sm text-emerald-600 hover:underline">Back to Projects</Link>
+        <Link href="/projects" className="text-sm text-emerald-600 font-semibold hover:underline">Back to Projects</Link>
       </div>
     );
   }
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-6 md:p-8 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex items-center gap-3 mb-2">
-        <Link href="/projects" className="text-gray-400 hover:text-gray-700 transition">
-          <ArrowLeft size={18} />
-        </Link>
-        <div className="h-9 w-9 rounded-lg bg-emerald-50 flex items-center justify-center">
-          <FolderOpen size={16} className="text-emerald-600" />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 sm:mb-6">
+        <div className="flex items-center gap-3 min-w-0">
+          <Link href="/projects" className="text-gray-400 hover:text-gray-700 p-1.5 rounded-lg hover:bg-gray-200/60 transition flex-shrink-0">
+            <ArrowLeft size={18} />
+          </Link>
+          <div className="h-10 w-10 rounded-xl bg-emerald-50 flex items-center justify-center flex-shrink-0">
+            <FolderOpen size={18} className="text-emerald-600" />
+          </div>
+          <div className="min-w-0">
+            <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate">{project.name}</h1>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Your role: <span className="font-semibold text-gray-700">{project.role}</span>
+            </p>
+          </div>
         </div>
-        <div className="flex-1">
-          <h1 className="text-xl font-bold text-gray-900">{project.name}</h1>
-        </div>
-        <div className="flex items-center gap-2">{
-          isOwnerOrAdmin&&
-          <button
-          id="create-team-btn"
-          onClick={() => setShowCreateTeam(true)}
-          className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold px-4 py-2 rounded-lg transition"
-          >
-            <Plus size={15} /> New Team
-          </button>
-          }
+
+        <div className="flex items-center gap-2 self-start sm:self-auto w-full sm:w-auto">
+          {isOwnerOrAdmin && (
+            <button
+              id="create-team-btn"
+              onClick={() => setShowCreateTeam(true)}
+              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-semibold px-4 py-2.5 rounded-xl transition shadow-sm"
+            >
+              <Plus size={15} /> New Team
+            </button>
+          )}
           {isOwner && (
             <button
-            id="delete-project-btn"
-            onClick={handleDeleteProject}
-            className="text-gray-400 hover:text-red-500 transition p-2 rounded-lg hover:bg-red-50"
-            title="Delete project"
+              id="delete-project-btn"
+              onClick={handleDeleteProject}
+              className="text-gray-400 hover:text-red-500 transition p-2 rounded-xl hover:bg-red-50 flex-shrink-0"
+              title="Delete project"
             >
               <Trash2 size={16} />
             </button>
@@ -201,18 +209,14 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
         </div>
       </div>
 
-      <p className="text-gray-500 text-sm ml-12 mb-4">
-        Your role: <span className="font-medium text-gray-700">{project.role}</span>
-      </p>
-
       {/* Tabs */}
       {isOwnerOrAdmin && (
-        <div className="flex gap-1 mb-6 border-b border-gray-200">
+        <div className="flex gap-2 mb-6 border-b border-gray-200 overflow-x-auto pb-1 flex-nowrap">
           <button
             onClick={() => setActiveTab('teams')}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition ${
+            className={`px-4 py-2 text-xs sm:text-sm font-medium border-b-2 whitespace-nowrap transition ${
               activeTab === 'teams'
-                ? 'border-emerald-600 text-emerald-700'
+                ? 'border-emerald-600 text-emerald-700 font-semibold'
                 : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
@@ -220,9 +224,9 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
           </button>
           <button
             onClick={() => setActiveTab('requests')}
-            className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 transition ${
+            className={`flex items-center gap-1.5 px-4 py-2 text-xs sm:text-sm font-medium border-b-2 whitespace-nowrap transition ${
               activeTab === 'requests'
-                ? 'border-emerald-600 text-emerald-700'
+                ? 'border-emerald-600 text-emerald-700 font-semibold'
                 : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
@@ -236,9 +240,9 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
           </button>
           <button
             onClick={() => setActiveTab('members')}
-            className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 transition ${
+            className={`flex items-center gap-1.5 px-4 py-2 text-xs sm:text-sm font-medium border-b-2 whitespace-nowrap transition ${
               activeTab === 'members'
-                ? 'border-emerald-600 text-emerald-700'
+                ? 'border-emerald-600 text-emerald-700 font-semibold'
                 : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
@@ -262,27 +266,27 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
           )}
 
           {!teamsLoading && !teamsError && teams?.length === 0 && (
-            <div className="flex flex-col items-center gap-3 py-16 text-gray-400">
+            <div className="flex flex-col items-center gap-3 py-16 text-gray-400 bg-white border border-gray-200 rounded-2xl p-6 text-center">
               <Users size={36} className="text-gray-300" />
               <p className="text-sm">No teams yet. Create the first one.</p>
             </div>
           )}
 
           {!teamsLoading && teams && teams.length > 0 && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
               {teams.map((team) => (
                 <div key={team.id} className="relative group">
                   <Link
                     href={`/projects/${projectId}/teams/${team.id}`}
                     id={`team-card-${team.id}`}
-                    className="block bg-white border border-gray-200 rounded-xl p-5 hover:border-emerald-300 hover:shadow-md hover:shadow-emerald-50 transition-all"
+                    className="block bg-white border border-gray-200 rounded-xl p-4 sm:p-5 hover:border-emerald-300 hover:shadow-md hover:shadow-emerald-50 transition-all"
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div className="h-10 w-10 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0">
                         <Users size={18} className="text-emerald-600" />
                       </div>
                     </div>
-                    <h3 className="text-gray-900 font-semibold group-hover:text-emerald-600 transition-colors">
+                    <h3 className="text-gray-900 font-semibold text-sm sm:text-base group-hover:text-emerald-600 transition-colors">
                       {team.name}
                     </h3>
                     <p className="text-gray-400 text-xs mt-1 flex items-center gap-1">
@@ -300,18 +304,18 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
       {activeTab === 'requests' && isOwnerOrAdmin && (
         <div className="space-y-3">
           {!joinRequests || joinRequests.length === 0 ? (
-            <div className="flex flex-col items-center gap-3 py-16 text-gray-400">
+            <div className="flex flex-col items-center gap-3 py-16 text-gray-400 bg-white border border-gray-200 rounded-2xl p-6 text-center">
               <Bell size={32} className="text-gray-300" />
               <p className="text-sm">No pending join requests.</p>
             </div>
           ) : (
             joinRequests.map((req) => (
-              <div key={req.id} className="flex items-center justify-between bg-white border border-gray-200 rounded-xl px-4 py-3">
-                <div>
-                  <p className="text-sm font-medium text-gray-900">{req.name}</p>
-                  <p className="text-xs text-gray-400">{req.email}</p>
+              <div key={req.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-gray-900 truncate">{req.name}</p>
+                  <p className="text-xs text-gray-400 truncate">{req.email}</p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex items-center gap-2 self-end sm:self-auto">
                   <button
                     id={`approve-req-${req.id}`}
                     onClick={() => resolveJoinReq.mutateAsync({ requestId: req.id, status: 'APPROVED' })}
@@ -342,7 +346,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
               <span className="text-sm">Loading members…</span>
             </div>
           ) : !members || members.length === 0 ? (
-            <div className="flex flex-col items-center gap-3 py-16 text-gray-400">
+            <div className="flex flex-col items-center gap-3 py-16 text-gray-400 bg-white border border-gray-200 rounded-2xl p-6 text-center">
               <UserCircle size={32} className="text-gray-300" />
               <p className="text-sm">No members found.</p>
             </div>
@@ -353,18 +357,18 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
                 <div
                   key={m.user_id}
                   id={`project-member-${m.user_id}`}
-                  className="flex items-center justify-between bg-white border border-gray-200 rounded-xl px-4 py-3 hover:border-gray-300 transition"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-gray-200 rounded-xl p-4 hover:border-gray-300 transition shadow-sm"
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
                     <div className="h-9 w-9 rounded-full bg-emerald-50 flex items-center justify-center flex-shrink-0">
                       <UserCircle size={18} className="text-emerald-600" />
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">{m.name}</p>
-                      <p className="text-xs text-gray-400">{m.email}</p>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-gray-900 truncate">{m.name}</p>
+                      <p className="text-xs text-gray-400 truncate">{m.email}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 self-end sm:self-auto flex-wrap">
                     <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border ${ROLE_COLORS[m.role]}`}>
                       {m.role}
                     </span>

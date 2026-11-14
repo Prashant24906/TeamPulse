@@ -6,7 +6,7 @@ import { useProjectSearch, useCreateProjectJoinRequest } from '@/hooks/useProjec
 import type { ProjectSearchResult } from '@/hooks/useProjectDiscovery';
 import {
   FolderOpen, Users, Plus, Loader2, AlertCircle,
-  X, Search, CheckCircle, Clock, ChevronRight,
+  X, Search, Clock, ChevronRight,
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -32,7 +32,7 @@ function JoinButton({ project }: { project: ProjectSearchResult }) {
     return (
       <Link
         href={`/projects/${project.id}`}
-        className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200 hover:bg-emerald-100 transition"
+        className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200 hover:bg-emerald-100 transition flex-shrink-0"
       >
         <ChevronRight size={13} /> Open
       </Link>
@@ -43,7 +43,7 @@ function JoinButton({ project }: { project: ProjectSearchResult }) {
     return (
       <span
         id={`join-pending-${project.id}`}
-        className="flex items-center gap-1.5 text-xs font-semibold text-amber-700 bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-200"
+        className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold text-amber-700 bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-200 flex-shrink-0"
       >
         <Clock size={13} /> Request Sent
       </span>
@@ -55,7 +55,7 @@ function JoinButton({ project }: { project: ProjectSearchResult }) {
       id={`join-project-${project.id}`}
       onClick={handleJoin}
       disabled={isSubmitting}
-      className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-lg border border-emerald-200 transition disabled:opacity-50"
+      className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-lg border border-emerald-200 transition disabled:opacity-50 flex-shrink-0"
     >
       {isSubmitting ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
       Request Access
@@ -71,22 +71,24 @@ function ProjectCard({ project }: { project: ProjectSearchResult }) {
   return (
     <div
       id={`search-result-${project.id}`}
-      className="bg-white border border-gray-200 rounded-xl p-5 hover:border-gray-300 hover:shadow-sm transition flex flex-col gap-4"
+      className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 hover:border-gray-300 hover:shadow-sm transition flex flex-col gap-3"
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
           <div className="h-10 w-10 rounded-xl bg-emerald-50 flex items-center justify-center flex-shrink-0">
             <FolderOpen size={18} className="text-emerald-600" />
           </div>
           <div className="min-w-0">
-            <p className="text-gray-900 font-semibold truncate">{project.name}</p>
+            <p className="text-gray-900 font-semibold text-sm sm:text-base truncate">{project.name}</p>
             <p className="text-gray-400 text-xs mt-0.5 flex items-center gap-1">
               <Users size={11} />
               {project.team_count} team{project.team_count !== 1 ? 's' : ''}
             </p>
           </div>
         </div>
-        <JoinButton project={project} />
+        <div className="self-end sm:self-auto">
+          <JoinButton project={project} />
+        </div>
       </div>
     </div>
   );
@@ -101,17 +103,17 @@ export default function SearchPage() {
   const { data: results, isLoading, isError, refetch } = useProjectSearch(query);
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-6 md:p-8 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Discover Projects</h1>
-        <p className="mt-1 text-gray-500 text-sm">
+      <div className="mb-4 sm:mb-6">
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Discover Projects</h1>
+        <p className="mt-1 text-gray-500 text-xs sm:text-sm">
           Browse all projects or search by name — request access to join one.
         </p>
       </div>
 
       {/* Search bar */}
-      <div className="flex items-center gap-3 bg-white border border-gray-200 rounded-xl px-4 py-3 shadow-sm focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500 transition mb-6 max-w-xl">
+      <div className="flex items-center gap-3 bg-white border border-gray-200 rounded-xl px-4 py-2.5 sm:py-3 shadow-sm focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500 transition mb-6 max-w-xl w-full">
         <Search size={17} className="text-gray-400 flex-shrink-0" />
         <input
           id="project-search-input"
@@ -119,10 +121,10 @@ export default function SearchPage() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Filter by project name…"
-          className="bg-transparent text-gray-900 placeholder-gray-400 text-sm flex-1 outline-none"
+          className="bg-transparent text-gray-900 placeholder-gray-400 text-sm flex-1 outline-none min-w-0"
         />
         {query && (
-          <button onClick={() => setQuery('')} className="text-gray-400 hover:text-gray-600 transition">
+          <button onClick={() => setQuery('')} className="text-gray-400 hover:text-gray-600 transition p-1">
             <X size={14} />
           </button>
         )}
@@ -147,7 +149,7 @@ export default function SearchPage() {
 
       {/* Empty — no projects at all */}
       {!isLoading && !isError && results?.length === 0 && !query && (
-        <div className="flex flex-col items-center gap-3 py-20 text-gray-400">
+        <div className="flex flex-col items-center gap-3 py-20 text-gray-400 bg-white border border-gray-200 rounded-2xl p-6 text-center">
           <FolderOpen size={36} className="text-gray-300" />
           <p className="text-sm">No projects available right now.</p>
         </div>
@@ -155,10 +157,10 @@ export default function SearchPage() {
 
       {/* Empty — no search match */}
       {!isLoading && !isError && results?.length === 0 && query && (
-        <div className="flex flex-col items-center gap-3 py-20 text-gray-400">
+        <div className="flex flex-col items-center gap-3 py-20 text-gray-400 bg-white border border-gray-200 rounded-2xl p-6 text-center">
           <Search size={32} className="text-gray-300" />
           <p className="text-sm">No projects match &ldquo;{query}&rdquo;</p>
-          <button onClick={() => setQuery('')} className="text-sm text-emerald-600 hover:underline">
+          <button onClick={() => setQuery('')} className="text-sm text-emerald-600 font-semibold hover:underline">
             Clear filter
           </button>
         </div>
@@ -167,11 +169,11 @@ export default function SearchPage() {
       {/* Results grid */}
       {!isLoading && !isError && results && results.length > 0 && (
         <>
-          <p className="text-xs text-gray-400 mb-4">
+          <p className="text-xs text-gray-400 mb-3 sm:mb-4">
             {results.length} project{results.length !== 1 ? 's' : ''} found
             {query ? ` for "${query}"` : ''}
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             {results.map((project) => (
               <ProjectCard key={project.id} project={project} />
             ))}

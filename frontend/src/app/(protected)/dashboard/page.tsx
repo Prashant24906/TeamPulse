@@ -17,23 +17,23 @@ export default function DashboardPage() {
   const { data: projects, isLoading, isError, refetch } = useProjects();
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-6 md:p-8 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">
+      <div className="mb-6 sm:mb-8">
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
           Welcome back{user ? `, ${user.name.split(' ')[0]}` : ''} 👋
         </h1>
-        <p className="mt-1 text-gray-500 text-sm">Here are your active projects.</p>
+        <p className="mt-1 text-gray-500 text-xs sm:text-sm">Here are your active projects.</p>
       </div>
 
       {/* Projects Grid */}
       <section>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Your Projects</h2>
+          <h2 className="text-xs sm:text-sm font-semibold text-gray-400 uppercase tracking-wider">Your Projects</h2>
           <Link
             href="/projects"
             id="go-to-projects"
-            className="flex items-center gap-1.5 text-sm text-emerald-600 hover:text-emerald-500 font-medium transition-colors"
+            className="flex items-center gap-1.5 text-xs sm:text-sm text-emerald-600 hover:text-emerald-500 font-semibold transition-colors"
           >
             <Plus size={15} /> New Project
           </Link>
@@ -42,7 +42,7 @@ export default function DashboardPage() {
         {isLoading && (
           <div className="flex items-center gap-2 text-gray-400 py-12 justify-center">
             <Loader2 className="animate-spin" size={20} />
-            <span>Loading projects…</span>
+            <span className="text-sm">Loading projects…</span>
           </div>
         )}
 
@@ -55,34 +55,36 @@ export default function DashboardPage() {
         )}
 
         {!isLoading && !isError && projects?.length === 0 && (
-          <div className="flex flex-col items-center gap-3 py-12 text-gray-400">
+          <div className="flex flex-col items-center gap-3 py-12 text-gray-400 bg-white border border-gray-200 rounded-2xl p-6 text-center">
             <FolderOpen size={32} className="text-gray-300" />
             <p className="text-sm">No projects yet.</p>
-            <Link href="/projects" className="text-sm text-emerald-600 hover:underline">Create your first project</Link>
+            <Link href="/projects" className="text-sm text-emerald-600 font-semibold hover:underline">
+              Create your first project
+            </Link>
           </div>
         )}
 
         {!isLoading && projects && projects.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             {projects.map((project) => (
               <Link
                 key={project.id}
                 href={`/projects/${project.id}`}
                 id={`project-card-${project.id}`}
-                className="group bg-white border border-gray-200 rounded-xl p-5 hover:border-emerald-300 hover:shadow-md hover:shadow-emerald-50 transition-all"
+                className="group bg-white border border-gray-200 rounded-xl p-4 sm:p-5 hover:border-emerald-300 hover:shadow-md hover:shadow-emerald-50 transition-all"
               >
                 <div className="flex items-start justify-between mb-3">
-                  <div className="h-10 w-10 rounded-lg bg-emerald-50 flex items-center justify-center">
+                  <div className="h-10 w-10 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0">
                     <FolderOpen size={18} className="text-emerald-600" />
                   </div>
                   <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${ROLE_COLORS[project.role]}`}>
                     {project.role}
                   </span>
                 </div>
-                <h3 className="text-gray-900 font-semibold group-hover:text-emerald-600 transition-colors">
+                <h3 className="text-gray-900 font-semibold text-sm sm:text-base group-hover:text-emerald-600 transition-colors">
                   {project.name}
                 </h3>
-                <p className="text-gray-400 text-xs mt-1 flex items-center gap-1">
+                <p className="text-gray-400 text-xs mt-1.5 flex items-center gap-1">
                   View teams <ChevronRight size={11} />
                 </p>
               </Link>

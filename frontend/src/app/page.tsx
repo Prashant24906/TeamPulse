@@ -6,22 +6,23 @@ import {
 import Navbar from '@/components/Navbar';
 import CTABanner from '@/components/CTABanner';
 import HeroCTA from '@/components/HeroCTA';
+
 // ---------------------------------------------------------------------------
 // Hero
 // ---------------------------------------------------------------------------
 
 function Hero() {
   return (
-    <section className="pt-32 pb-20 px-6 text-center bg-gradient-to-b from-emerald-50/40 via-gray-100 to-gray-100">
+    <section className="pt-24 sm:pt-32 pb-14 sm:pb-20 px-4 sm:px-6 text-center bg-gradient-to-b from-emerald-50/40 via-gray-100 to-gray-100">
       <div className="max-w-4xl mx-auto">
         {/* Badge */}
-        <div className="inline-flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold px-3 py-1.5 rounded-full mb-8">
+        <div className="inline-flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold px-3 py-1.5 rounded-full mb-6 sm:mb-8">
           <Zap size={12} className="fill-emerald-600" />
           Real-time collaboration, reimagined
         </div>
 
         {/* Headline */}
-        <h1 className="text-5xl md:text-6xl font-extrabold text-gray-900 leading-tight tracking-tight mb-6">
+        <h1 className="text-3xl sm:text-5xl md:text-6xl font-extrabold text-gray-900 leading-tight tracking-tight mb-4 sm:mb-6">
           The platform your team{' '}
           <span className="bg-gradient-to-r from-emerald-600 to-teal-500 bg-clip-text text-transparent">
             actually wants
@@ -30,7 +31,7 @@ function Hero() {
         </h1>
 
         {/* Sub */}
-        <p className="text-xl text-gray-500 leading-relaxed mb-10 max-w-2xl mx-auto">
+        <p className="text-base sm:text-lg md:text-xl text-gray-500 leading-relaxed mb-8 sm:mb-10 max-w-2xl mx-auto">
           TeamPulse brings teams together with real-time chat, kanban project boards, task management, 
           and smart join requests — all in one beautiful platform.
         </p>
@@ -40,21 +41,21 @@ function Hero() {
       </div>
 
       {/* Dashboard Preview */}
-      <div className="max-w-5xl mx-auto mt-16 relative">
-        <div className="rounded-2xl overflow-hidden border border-gray-200 shadow-2xl shadow-gray-200/60">
+      <div className="max-w-5xl mx-auto mt-12 sm:mt-16 relative">
+        <div className="rounded-xl sm:rounded-2xl overflow-hidden border border-gray-200 shadow-xl sm:shadow-2xl shadow-gray-200/60">
           {/* Fake browser bar */}
-          <div className="bg-gray-100 border-b border-gray-200 px-4 py-3 flex items-center gap-2">
-            <div className="h-3 w-3 rounded-full bg-red-400" />
-            <div className="h-3 w-3 rounded-full bg-amber-400" />
-            <div className="h-3 w-3 rounded-full bg-emerald-400" />
-            <div className="flex-1 mx-4 bg-white border border-gray-200 rounded-md px-3 py-1 text-xs text-gray-400 text-center">
+          <div className="bg-gray-100 border-b border-gray-200 px-3 sm:px-4 py-2.5 sm:py-3 flex items-center gap-2">
+            <div className="h-2.5 w-2.5 sm:h-3 sm:w-3 rounded-full bg-red-400" />
+            <div className="h-2.5 w-2.5 sm:h-3 sm:w-3 rounded-full bg-amber-400" />
+            <div className="h-2.5 w-2.5 sm:h-3 sm:w-3 rounded-full bg-emerald-400" />
+            <div className="flex-1 mx-2 sm:mx-4 bg-white border border-gray-200 rounded-md px-2 sm:px-3 py-0.5 sm:py-1 text-[11px] sm:text-xs text-gray-400 text-center truncate">
               app.teampulse.io/dashboard
             </div>
           </div>
           {/* Fake dashboard */}
-          <div className="bg-gray-50 p-6 grid grid-cols-4 gap-4 min-h-[300px]">
-            {/* Sidebar mockup */}
-            <div className="col-span-1 bg-gray-50 rounded-xl p-3 space-y-2 border border-gray-100">
+          <div className="bg-gray-50 p-3 sm:p-6 grid grid-cols-1 md:grid-cols-4 gap-3 sm:gap-4 min-h-[260px] sm:min-h-[300px]">
+            {/* Sidebar mockup - hidden on mobile for clean preview */}
+            <div className="hidden md:block col-span-1 bg-white rounded-xl p-3 space-y-2 border border-gray-200">
               <div className="text-xs font-bold bg-gradient-to-r from-emerald-600 to-teal-500 bg-clip-text text-transparent mb-4">TeamPulse</div>
               {['Dashboard', 'Teams', 'Projects', 'Settings'].map((item, i) => (
                 <div key={item} className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs ${i === 0 ? 'bg-emerald-50 text-emerald-700 font-medium' : 'text-gray-500'}`}>
@@ -64,20 +65,20 @@ function Hero() {
               ))}
             </div>
             {/* Content mockup */}
-            <div className="col-span-3 space-y-3">
+            <div className="col-span-1 md:col-span-3 space-y-3">
               <div className="flex items-center justify-between mb-2">
-                <div className="h-4 w-32 bg-gray-200 rounded animate-pulse" />
-                <div className="h-7 w-24 bg-emerald-100 rounded-lg" />
+                <div className="h-4 w-28 sm:w-32 bg-gray-200 rounded animate-pulse" />
+                <div className="h-6 sm:h-7 w-20 sm:w-24 bg-emerald-100 rounded-lg" />
               </div>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
                 {[
                   { name: 'Backend API', role: 'OWNER', members: 5 },
                   { name: 'Design Team', role: 'MEMBER', members: 3 },
                   { name: 'DevOps', role: 'ADMIN', members: 4 },
                 ].map((team) => (
-                  <div key={team.name} className="bg-white border border-gray-200 rounded-xl p-3 shadow-sm">
-                    <div className="h-8 w-8 bg-emerald-50 rounded-lg mb-2 flex items-center justify-center">
-                      <div className="h-3 w-3 bg-emerald-400 rounded" />
+                  <div key={team.name} className="bg-white border border-gray-200 rounded-xl p-3 shadow-sm text-left">
+                    <div className="h-7 w-7 sm:h-8 sm:w-8 bg-emerald-50 rounded-lg mb-2 flex items-center justify-center">
+                      <div className="h-2.5 w-2.5 sm:h-3 sm:w-3 bg-emerald-400 rounded" />
                     </div>
                     <div className="text-xs font-semibold text-gray-800">{team.name}</div>
                     <div className="text-[10px] text-gray-400 mt-0.5">{team.members} members</div>
@@ -89,9 +90,9 @@ function Hero() {
                 ))}
               </div>
               {/* Kanban preview */}
-              <div className="grid grid-cols-3 gap-2 mt-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2">
                 {['To Do', 'In Progress', 'Done'].map((col, ci) => (
-                  <div key={col} className={`rounded-lg p-2 border ${ci === 0 ? 'border-gray-200 bg-gray-50' : ci === 1 ? 'border-amber-100 bg-amber-50' : 'border-emerald-100 bg-emerald-50'}`}>
+                  <div key={col} className={`rounded-lg p-2 border text-left ${ci === 0 ? 'border-gray-200 bg-white' : ci === 1 ? 'border-amber-100 bg-amber-50/50' : 'border-emerald-100 bg-emerald-50/50'}`}>
                     <div className={`text-[9px] font-bold mb-1.5 ${ci === 0 ? 'text-gray-500' : ci === 1 ? 'text-amber-600' : 'text-emerald-600'}`}>{col}</div>
                     {[1, 2].map((t) => (
                       <div key={t} className="bg-white rounded-md p-1.5 mb-1 border border-gray-100 shadow-sm">
@@ -163,28 +164,28 @@ const FEATURES = [
 
 function Features() {
   return (
-    <section id="features" className="py-24 px-6 bg-gray-100">
+    <section id="features" className="py-14 sm:py-24 px-4 sm:px-6 bg-gray-100">
       <div className="max-w-6xl mx-auto">
-        <div className="text-center mb-16">
-          <h2 className="text-4xl font-extrabold text-gray-900 mb-4">
+        <div className="text-center mb-10 sm:mb-16">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-gray-900 mb-3 sm:mb-4 tracking-tight">
             Everything your team needs
           </h2>
-          <p className="text-lg text-gray-500 max-w-xl mx-auto">
+          <p className="text-sm sm:text-base md:text-lg text-gray-500 max-w-xl mx-auto leading-relaxed">
             No juggling between apps. TeamPulse combines project management, 
             real-time chat and team discovery in one cohesive workspace.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {FEATURES.map(({ icon: Icon, color, title, description }) => (
             <div
               key={title}
-              className="bg-white border border-gray-100 rounded-2xl p-7 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all"
+              className="bg-white border border-gray-100 rounded-2xl p-5 sm:p-7 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all"
             >
-              <div className={`h-11 w-11 rounded-xl ${color} flex items-center justify-center mb-5`}>
+              <div className={`h-11 w-11 rounded-xl ${color} flex items-center justify-center mb-4 sm:mb-5`}>
                 <Icon size={20} />
               </div>
-              <h3 className="text-lg font-bold text-gray-900 mb-2">{title}</h3>
+              <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-2">{title}</h3>
               <p className="text-gray-500 text-sm leading-relaxed">{description}</p>
             </div>
           ))}
@@ -221,20 +222,20 @@ const STEPS = [
 
 function HowItWorks() {
   return (
-    <section id="how-it-works" className="py-24 px-6 bg-gray-50">
+    <section id="how-it-works" className="py-14 sm:py-24 px-4 sm:px-6 bg-gray-50">
       <div className="max-w-5xl mx-auto">
-        <div className="text-center mb-16">
-          <h2 className="text-4xl font-extrabold text-gray-900 mb-4">How it works</h2>
-          <p className="text-lg text-gray-500">Get up and running in three simple steps.</p>
+        <div className="text-center mb-10 sm:mb-16">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-gray-900 mb-3 sm:mb-4 tracking-tight">How it works</h2>
+          <p className="text-sm sm:text-base md:text-lg text-gray-500">Get up and running in three simple steps.</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
           {STEPS.map(({ step, title, desc, color }) => (
-            <div key={step} className="relative">
-              <div className={`inline-flex items-center justify-center h-12 w-12 rounded-2xl border text-lg font-extrabold ${color} mb-5`}>
+            <div key={step} className="relative bg-white sm:bg-transparent p-5 sm:p-0 rounded-2xl sm:rounded-none border sm:border-0 border-gray-200 shadow-sm sm:shadow-none">
+              <div className={`inline-flex items-center justify-center h-11 w-11 sm:h-12 sm:w-12 rounded-xl sm:rounded-2xl border text-base sm:text-lg font-extrabold ${color} mb-4 sm:mb-5`}>
                 {step}
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-3">{title}</h3>
+              <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-2 sm:mb-3">{title}</h3>
               <p className="text-gray-500 text-sm leading-relaxed">{desc}</p>
             </div>
           ))}
@@ -251,39 +252,39 @@ function HowItWorks() {
 const WHY = [
   { icon: Globe,          text: 'Works from any browser, any device' },
   { icon: Zap,            text: 'Sub-100ms real-time updates via Socket.IO' },
-  { icon: Shield,         text: 'JWT authentication with HttpOnly cookies' },
+  { icon: Shield,         text: 'JWT authentication with persistent sessions' },
   { icon: CheckCircle2,   text: 'PostgreSQL-backed — your data never disappears' },
 ];
 
 function WhyUs() {
   return (
-    <section id="why-us" className="py-24 px-6 bg-gray-100">
-      <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+    <section id="why-us" className="py-14 sm:py-24 px-4 sm:px-6 bg-gray-100">
+      <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16 items-center">
         <div>
-          <h2 className="text-4xl font-extrabold text-gray-900 mb-5">
-            Built for speed,<br />designed for teams
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-gray-900 mb-4 sm:mb-5 tracking-tight">
+            Built for speed,<br className="hidden sm:inline" /> designed for teams
           </h2>
-          <p className="text-gray-500 text-lg leading-relaxed mb-8">
+          <p className="text-gray-500 text-sm sm:text-base md:text-lg leading-relaxed mb-6 sm:mb-8">
             TeamPulse is engineered with a modern full-stack architecture — Next.js on the frontend, 
             Express + TypeScript on the backend, and PostgreSQL as the single source of truth. 
             Every interaction is instant.
           </p>
-          <ul className="space-y-4">
+          <ul className="space-y-3 sm:space-y-4">
             {WHY.map(({ icon: Icon, text }) => (
               <li key={text} className="flex items-center gap-3 text-gray-600">
                 <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0">
                   <Icon size={15} className="text-emerald-600" />
                 </div>
-                <span className="text-sm font-medium">{text}</span>
+                <span className="text-xs sm:text-sm font-medium">{text}</span>
               </li>
             ))}
           </ul>
         </div>
 
         {/* Right: checklist card */}
-        <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-lg shadow-gray-100">
-          <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-5">What&apos;s included</h3>
-          <ul className="space-y-4">
+        <div className="bg-white border border-gray-200 rounded-2xl p-5 sm:p-8 shadow-lg shadow-gray-100">
+          <h3 className="text-xs sm:text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4 sm:mb-5">What&apos;s included</h3>
+          <ul className="space-y-3 sm:space-y-4">
             {[
               'Unlimited teams & projects',
               'Persistent team chat with history',
@@ -291,12 +292,12 @@ function WhyUs() {
               'Role-based access control',
               'Team discovery & join requests',
               'Real-time WebSocket events',
-              'JWT auth with refresh tokens',
+              'JWT auth with session persistence',
               'Background job processing (BullMQ)',
             ].map((item) => (
-              <li key={item} className="flex items-center gap-3">
+              <li key={item} className="flex items-center gap-2.5 sm:gap-3">
                 <CheckCircle2 size={16} className="text-emerald-500 flex-shrink-0" />
-                <span className="text-gray-700 text-sm">{item}</span>
+                <span className="text-gray-700 text-xs sm:text-sm">{item}</span>
               </li>
             ))}
           </ul>
@@ -306,14 +307,13 @@ function WhyUs() {
   );
 }
 
-
 // ---------------------------------------------------------------------------
 // Footer
 // ---------------------------------------------------------------------------
 
 function Footer() {
   return (
-    <footer className="border-t border-gray-200 bg-gray-100 py-10 px-6 text-center text-sm text-gray-400">
+    <footer className="border-t border-gray-200 bg-gray-100 py-8 sm:py-10 px-4 sm:px-6 text-center text-xs sm:text-sm text-gray-400">
       <span className="font-bold bg-gradient-to-r from-emerald-600 to-teal-500 bg-clip-text text-transparent mr-2">
         TeamPulse
       </span>

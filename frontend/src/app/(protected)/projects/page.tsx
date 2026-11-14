@@ -49,38 +49,38 @@ function CreateProjectModal({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm px-4">
-      <div className="bg-white border border-gray-200 rounded-2xl w-full max-w-md p-6 shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+      <div className="bg-white border border-gray-200 rounded-2xl w-full max-w-md p-5 sm:p-6 shadow-xl">
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-bold text-gray-900">New Project</h2>
+          <h2 className="text-base sm:text-lg font-bold text-gray-900">New Project</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-700 transition"><X size={18} /></button>
         </div>
 
         {error && (
-          <div className="mb-4 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">{error}</div>
+          <div className="mb-4 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-xs sm:text-sm text-red-600">{error}</div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4" id="create-project-form">
           <div>
-            <label htmlFor="project-name" className="block text-sm font-medium text-gray-700 mb-1.5">Project Name</label>
+            <label htmlFor="project-name" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5">Project Name</label>
             <input
               id="project-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full rounded-lg bg-white border border-gray-300 px-4 py-2.5 text-gray-900 placeholder-gray-400 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition"
+              className="w-full rounded-xl bg-white border border-gray-300 px-4 py-2.5 text-gray-900 placeholder-gray-400 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 text-sm transition"
               placeholder="e.g. TeamPulse v2"
               autoFocus
             />
           </div>
           <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="flex-1 rounded-lg border border-gray-200 px-4 py-2.5 text-gray-600 hover:bg-gray-50 transition text-sm font-medium">
+            <button type="button" onClick={onClose} className="flex-1 rounded-xl border border-gray-200 px-4 py-2.5 text-gray-600 hover:bg-gray-50 transition text-sm font-medium">
               Cancel
             </button>
             <button
               id="create-project-submit"
               type="submit"
               disabled={createProject.isPending}
-              className="flex-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 px-4 py-2.5 text-white font-semibold transition text-sm"
+              className="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 px-4 py-2.5 text-white font-semibold transition text-sm shadow-sm"
             >
               {createProject.isPending ? 'Creating…' : 'Create Project'}
             </button>
@@ -101,16 +101,16 @@ export default function ProjectsPage() {
   const [showCreate, setShowCreate] = useState(false);
 
   return (
-    <div className="p-8">
-      <div className="flex items-center justify-between mb-8">
+    <div className="p-4 sm:p-6 md:p-8 max-w-7xl mx-auto">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 sm:mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Projects</h1>
-          <p className="mt-1 text-gray-500 text-sm">Your projects — each contains teams and tasks.</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Projects</h1>
+          <p className="mt-1 text-gray-500 text-xs sm:text-sm">Your projects — each contains teams and tasks.</p>
         </div>
         <button
           id="open-create-project"
           onClick={() => setShowCreate(true)}
-          className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition"
+          className="inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-semibold px-4 py-2.5 rounded-xl transition shadow-sm w-full sm:w-auto"
         >
           <Plus size={16} /> New Project
         </button>
@@ -123,7 +123,7 @@ export default function ProjectsPage() {
       )}
 
       {isError && (
-        <div className="flex flex-col items-center gap-3 text-gray-500 py-12">
+        <div className="flex flex-col items-center gap-3 text-gray-500 py-12 justify-center">
           <AlertCircle size={24} className="text-red-400" />
           <p className="text-sm">Unable to load projects.</p>
           <button onClick={() => refetch()} className="text-sm text-emerald-600 hover:underline">Retry</button>
@@ -131,20 +131,20 @@ export default function ProjectsPage() {
       )}
 
       {!isLoading && !isError && projects?.length === 0 && (
-        <div className="flex flex-col items-center gap-3 py-16 text-gray-400">
+        <div className="flex flex-col items-center gap-3 py-16 text-gray-400 bg-white border border-gray-200 rounded-2xl p-6 text-center">
           <FolderOpen size={36} className="text-gray-300" />
           <p className="text-sm">No projects yet. Create one to get started.</p>
         </div>
       )}
 
       {!isLoading && projects && projects.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           {projects.map((project) => (
             <div key={project.id} className="relative group">
               <Link
                 href={`/projects/${project.id}`}
                 id={`project-card-${project.id}`}
-                className="block bg-white border border-gray-200 rounded-xl p-5 hover:border-emerald-300 hover:shadow-md hover:shadow-emerald-50 transition-all"
+                className="block bg-white border border-gray-200 rounded-xl p-4 sm:p-5 hover:border-emerald-300 hover:shadow-md hover:shadow-emerald-50 transition-all"
               >
                 <div className="flex items-start justify-between mb-3">
                   <div className="h-10 w-10 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0">
@@ -154,10 +154,10 @@ export default function ProjectsPage() {
                     {project.role}
                   </span>
                 </div>
-                <h3 className="text-gray-900 font-semibold group-hover:text-emerald-600 transition-colors">
+                <h3 className="text-gray-900 font-semibold text-sm sm:text-base group-hover:text-emerald-600 transition-colors pr-6">
                   {project.name}
                 </h3>
-                <p className="text-gray-400 text-xs mt-1 flex items-center gap-1">
+                <p className="text-gray-400 text-xs mt-1.5 flex items-center gap-1">
                   View teams & tasks <ChevronRight size={12} />
                 </p>
               </Link>
@@ -171,7 +171,7 @@ export default function ProjectsPage() {
                     }
                   }}
                   id={`delete-project-${project.id}`}
-                  className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition p-1.5 rounded"
+                  className="absolute bottom-4 right-4 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 text-gray-400 hover:text-red-500 transition p-1.5 rounded-lg hover:bg-red-50"
                   title="Delete project"
                 >
                   <Trash2 size={14} />

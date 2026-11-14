@@ -25,12 +25,14 @@ export function ChatPanel({ teamId }: Props) {
   }
 
   return (
-    <div className="flex flex-col bg-gray-900/50 border border-gray-800 rounded-xl overflow-hidden"
-         style={{ height: 'calc(100vh - 280px)', minHeight: '400px' }}>
+    <div className="flex flex-col bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden h-[calc(100dvh-310px)] md:h-[calc(100vh-270px)] min-h-[380px] shadow-xl">
       {/* Header */}
-      <div className="px-5 py-3 border-b border-gray-800 flex-shrink-0 bg-gray-900">
-        <h3 className="text-sm font-semibold text-white">Team Chat</h3>
-        <p className="text-xs text-gray-500 mt-0.5">Messages are visible to all team members</p>
+      <div className="px-4 sm:px-5 py-3 border-b border-gray-800 flex-shrink-0 bg-gray-900 flex items-center justify-between">
+        <div>
+          <h3 className="text-xs sm:text-sm font-semibold text-white">Team Chat</h3>
+          <p className="text-[11px] text-gray-500">Visible to team members</p>
+        </div>
+        <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" title="Live connection" />
       </div>
 
       {/* Messages */}
