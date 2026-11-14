@@ -4,8 +4,8 @@ import {
   CheckCircle2, ArrowRight, Shield, Globe, Bell,
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
+import CTABanner from '@/components/CTABanner';
 import HeroCTA from '@/components/HeroCTA';
-
 // ---------------------------------------------------------------------------
 // Hero
 // ---------------------------------------------------------------------------
@@ -107,31 +107,6 @@ function Hero() {
         </div>
         {/* Glow */}
         <div className="absolute -inset-4 bg-gradient-to-r from-emerald-200/30 to-teal-200/30 rounded-3xl blur-2xl -z-10" />
-      </div>
-    </section>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Stats
-// ---------------------------------------------------------------------------
-
-function Stats() {
-  const stats = [
-    { value: '10,000+', label: 'Active teams' },
-    { value: '500K+',   label: 'Tasks completed' },
-    { value: '2M+',     label: 'Messages sent' },
-    { value: '99.9%',   label: 'Uptime SLA' },
-  ];
-  return (
-    <section className="border-y border-gray-100 bg-gray-50 py-12">
-      <div className="max-w-5xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-        {stats.map(({ value, label }) => (
-          <div key={label}>
-            <div className="text-3xl font-extrabold bg-gradient-to-r from-emerald-600 to-teal-500 bg-clip-text text-transparent">{value}</div>
-            <div className="text-sm text-gray-500 mt-1">{label}</div>
-          </div>
-        ))}
       </div>
     </section>
   );
@@ -331,30 +306,6 @@ function WhyUs() {
   );
 }
 
-// ---------------------------------------------------------------------------
-// CTA Banner
-// ---------------------------------------------------------------------------
-
-function CTABanner() {
-  return (
-    <section className="py-20 px-6 bg-gray-100">
-      <div className="max-w-3xl mx-auto text-center bg-gradient-to-br from-emerald-600 to-teal-500 rounded-3xl p-14 shadow-2xl shadow-emerald-200">
-        <h2 className="text-4xl font-extrabold text-white mb-4">
-          Ready to bring your team together?
-        </h2>
-        <p className="text-emerald-100 text-lg mb-8">
-          Create your workspace in less than 60 seconds. No credit card required.
-        </p>
-        <Link
-          href="/register"
-          className="inline-flex items-center gap-2 bg-white text-emerald-700 font-bold px-8 py-4 rounded-xl hover:bg-emerald-50 transition-colors shadow-lg"
-        >
-          Get started for free <ArrowRight size={18} />
-        </Link>
-      </div>
-    </section>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Footer
@@ -381,7 +332,6 @@ export default function HomePage() {
       <Navbar />
       <main>
         <Hero />
-        <Stats />
         <Features />
         <HowItWorks />
         <WhyUs />
