@@ -24,7 +24,11 @@ const ROLE_COLORS: Record<ProjectRole, string> = {
 // ---------------------------------------------------------------------------
 
 const schema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters').max(100),
+  name: z
+    .string()
+    .trim()
+    .min(2, 'Name must be at least 2 characters')
+    .max(100, 'Name must be at most 100 characters'),
 });
 
 function CreateProjectModal({ onClose }: { onClose: () => void }) {
@@ -43,8 +47,12 @@ function CreateProjectModal({ onClose }: { onClose: () => void }) {
     try {
       await createProject.mutateAsync(parsed.data);
       onClose();
-    } catch {
-      setError('Failed to create project. Try again.');
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.message ||
+        err?.message ||
+        'Project name already exists.';
+      setError(typeof msg === 'string' ? msg : JSON.stringify(msg));
     }
   };
 

@@ -32,9 +32,10 @@ export async function createProject(
   name: string,
   userId: string
 ): Promise<Project> {
+  const trimmedName = name.trim();
   const rows = await sql<Project[]>`
     INSERT INTO projects (name, created_by)
-    VALUES (${name}, ${userId})
+    VALUES (${trimmedName}, ${userId})
     RETURNING *
   `;
   return rows[0];
@@ -43,6 +44,30 @@ export async function createProject(
 export async function findProjectById(projectId: string): Promise<Project | null> {
   const rows = await sql<Project[]>`
     SELECT * FROM projects WHERE id = ${projectId} LIMIT 1
+  `;
+  return rows[0] ?? null;
+}
+
+export async function findProjectByNormalizedName(name: string): Promise<Project | null> {
+  const trimmed = name.trim();
+  const rows = await sql<Project[]>`
+    SELECT * FROM projects
+     WHERE LOWER(TRIM(name)) = LOWER(${trimmed})
+     LIMIT 1
+  `;
+  return rows[0] ?? null;
+}
+
+export async function findProjectByNormalizedNameExcluding(
+  name: string,
+  excludeProjectId: string
+): Promise<Project | null> {
+  const trimmed = name.trim();
+  const rows = await sql<Project[]>`
+    SELECT * FROM projects
+     WHERE LOWER(TRIM(name)) = LOWER(${trimmed})
+       AND id != ${excludeProjectId}
+     LIMIT 1
   `;
   return rows[0] ?? null;
 }
@@ -62,9 +87,10 @@ export async function updateProject(
   projectId: string,
   fields: Partial<{ name: string }>
 ): Promise<Project> {
+  const trimmedName = fields.name !== undefined ? fields.name.trim() : null;
   const rows = await sql<Project[]>`
     UPDATE projects
-       SET name = COALESCE(${fields.name ?? null}, name)
+       SET name = COALESCE(${trimmedName}, name)
      WHERE id = ${projectId}
     RETURNING *
   `;

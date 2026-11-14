@@ -33,9 +33,30 @@ export async function createProject(
   userId: string,
   input: CreateProjectInput
 ) {
-  const project = await projectRepo.createProject(input.name, userId);
-  await projectRepo.addMember(project.id, userId, 'OWNER');
-  return project;
+  const trimmedName = input.name.trim();
+
+  // 1. Pre-check for duplicate project name (case-insensitive & trimmed)
+  const existing = await projectRepo.findProjectByNormalizedName(trimmedName);
+  if (existing) {
+    throw new AppError(409, 'A project with this name already exists');
+  }
+
+  // 2. Insert project, handling concurrent creation unique constraint violation
+  try {
+    const project = await projectRepo.createProject(trimmedName, userId);
+    await projectRepo.addMember(project.id, userId, 'OWNER');
+    return project;
+  } catch (err: any) {
+    if (
+      err.code === '23505' ||
+      err.constraint === 'idx_projects_unique_name' ||
+      err.message?.includes('idx_projects_unique_name') ||
+      err.message?.toLowerCase().includes('unique')
+    ) {
+      throw new AppError(409, 'A project with this name already exists');
+    }
+    throw err;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -161,10 +182,31 @@ export async function updateProject(
     throw new AppError(403, 'Only OWNER or ADMIN can update the project');
   }
 
-  const updated = await projectRepo.updateProject(project.id, input);
-  await cacheInvalidate(CacheKeys.project(project.id));
+  let updatePayload = input;
+  if (input.name !== undefined) {
+    const trimmedName = input.name.trim();
+    const existing = await projectRepo.findProjectByNormalizedNameExcluding(trimmedName, project.id);
+    if (existing) {
+      throw new AppError(409, 'A project with this name already exists');
+    }
+    updatePayload = { ...input, name: trimmedName };
+  }
 
-  return updated;
+  try {
+    const updated = await projectRepo.updateProject(project.id, updatePayload);
+    await cacheInvalidate(CacheKeys.project(project.id));
+    return updated;
+  } catch (err: any) {
+    if (
+      err.code === '23505' ||
+      err.constraint === 'idx_projects_unique_name' ||
+      err.message?.includes('idx_projects_unique_name') ||
+      err.message?.toLowerCase().includes('unique')
+    ) {
+      throw new AppError(409, 'A project with this name already exists');
+    }
+    throw err;
+  }
 }
 
 // ---------------------------------------------------------------------------
