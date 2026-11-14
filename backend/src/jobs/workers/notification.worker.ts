@@ -1,6 +1,7 @@
 import { Worker, Job } from 'bullmq';
 import { env } from '../../config/env';
 import { connectDB } from '../../config/database';
+import { getBullMQConnection } from '../../config/redis';
 import type { TaskDeadlineJobData } from '../jobs/taskDeadline.job';
 import { NOTIFICATION_QUEUE_NAME } from '../jobs/taskDeadline.job';
 import {
@@ -68,10 +69,7 @@ async function start(): Promise<void> {
     NOTIFICATION_QUEUE_NAME,
     processJob,
     {
-      connection: {
-        host: new URL(env.REDIS_URL).hostname,
-        port: parseInt(new URL(env.REDIS_URL).port || '6379', 10),
-      },
+      connection: getBullMQConnection(),
       concurrency: 5,
     }
   );

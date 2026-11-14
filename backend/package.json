@@ -6,10 +6,11 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "worker": "tsx watch src/jobs/workers/notification.worker.ts",
+    "worker:prod": "node dist/jobs/workers/notification.worker.js",
     "build": "tsc",
     "start": "node dist/server.js",
     "test": "vitest",
-    "test:run": "vitest run"
+    "test:run": "vitest run src"
   },
   "keywords": [],
   "author": "",

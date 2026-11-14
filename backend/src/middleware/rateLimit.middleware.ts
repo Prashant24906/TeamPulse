@@ -19,12 +19,20 @@ interface RateLimitOptions {
   max?: number;
   /** Key prefix for Redis (used to separate limits per route group). Default: 'rl' */
   prefix?: string;
+  /**
+   * When true, the middleware returns HTTP 503 instead of letting requests
+   * through when Redis is unavailable. Use for security-sensitive endpoints
+   * (e.g. auth) where failing open would defeat brute-force protection.
+   * Default: false (fail open — acceptable for general API traffic).
+   */
+  failClosed?: boolean;
 }
 
 export function rateLimit({
   window: windowSecs = 60,
   max = 60,
   prefix = 'rl',
+  failClosed = false,
 }: RateLimitOptions = {}) {
   return async (
     req: Request,
@@ -39,11 +47,24 @@ export function rateLimit({
 
     const key = `${prefix}:${ip}`;
 
+    // Shared helper: handle Redis being unavailable
+    const handleRedisUnavailable = (source: string): void => {
+      if (failClosed) {
+        console.warn(`[rateLimit] ${source} — rate limiter unavailable, rejecting request (failClosed=true)`);
+        res.status(503).json({
+          status:  'error',
+          message: 'Service temporarily unavailable. Please try again shortly.',
+        });
+      } else {
+        console.warn(`[rateLimit] ${source} — Redis unavailable, skipping rate limit check`);
+        next();
+      }
+    };
+
     try {
-      // If Redis is not ready, degrade gracefully — let request through
+      // If Redis is not ready, fail closed or open depending on configuration
       if (!isRedisReady()) {
-        console.warn('[rateLimit] Redis not ready, skipping rate limit check');
-        return next();
+        return handleRedisUnavailable('Redis not ready');
       }
 
       const redis = getRedis()!;
@@ -62,6 +83,7 @@ export function rateLimit({
       res.setHeader('X-RateLimit-Reset',     Math.ceil(Date.now() / 1000) + ttl);
 
       if (count > max) {
+        console.log(count);
         res.status(429).json({
           status:  'error',
           message: `Too many requests. Please try again in ${ttl} seconds.`,
@@ -71,9 +93,8 @@ export function rateLimit({
 
       next();
     } catch {
-      // Redis unavailable — degrade gracefully, let the request through
-      console.warn('[rateLimit] Redis unavailable, skipping rate limit check');
-      next();
+      // Redis error — fail closed or open depending on configuration
+      return handleRedisUnavailable('Redis error');
     }
   };
 }
@@ -93,6 +114,10 @@ export const authRateLimit = rateLimit({
   window: 60,
   max:    isDev ? 100 : 10,
   prefix: 'rl:auth',
+  // Auth endpoints MUST NOT let requests through when Redis is down —
+  // an unavailable rate limiter would leave login/register unprotected
+  // against brute-force attacks.
+  failClosed: !isDev,
 });
 
 /**

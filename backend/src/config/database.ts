@@ -18,6 +18,20 @@ export async function connectDB(): Promise<void> {
 }
 
 /**
+ * Drain and close the PostgreSQL connection pool gracefully.
+ *
+ * @param timeoutSecs Maximum seconds to wait for active queries to complete. Default: 5
+ */
+export async function disconnectDB(timeoutSecs = 5): Promise<void> {
+  try {
+    await sql.end({ timeout: timeoutSecs });
+    console.log('[db] PostgreSQL pool closed.');
+  } catch (err) {
+    console.error('[db] Error closing PostgreSQL pool:', (err as Error).message);
+  }
+}
+
+/**
  * Run multiple statements inside a transaction.
  *
  * Usage:

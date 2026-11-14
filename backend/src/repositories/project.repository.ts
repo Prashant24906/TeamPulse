@@ -162,6 +162,14 @@ export interface ProjectSearchResult {
 }
 
 /**
+ * Escape PostgreSQL ILIKE wildcards (% and _) in user-supplied strings so
+ * the pattern is treated as a literal substring match.
+ */
+function escapeLike(raw: string): string {
+  return raw.replace(/[\\%_]/g, (c) => `\\${c}`);
+}
+
+/**
  * Returns all projects whose name matches `q`, annotated with
  * the calling user's membership status and any pending join request.
  */
@@ -169,7 +177,7 @@ export async function searchProjects(
   q: string,
   userId: string
 ): Promise<ProjectSearchResult[]> {
-  const pattern = `%${q}%`;
+  const pattern = `%${escapeLike(q)}%`;
   return sql<ProjectSearchResult[]>`
     SELECT
       p.id,

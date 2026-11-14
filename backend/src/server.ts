@@ -1,6 +1,6 @@
 import { createServer } from 'http';
 import { env } from './config/env';
-import { connectDB } from './config/database';
+import { connectDB, disconnectDB } from './config/database';
 import { connectRedis, disconnectRedis } from './config/redis';
 import { closeNotificationQueue } from './jobs/queues/notification.queue';
 import app from './app';
@@ -36,20 +36,45 @@ async function start(): Promise<void> {
   });
 
   // 4. Graceful shutdown
+  let isShuttingDown = false;
+
   const shutdown = (signal: string) => {
+    if (isShuttingDown) return;
+    isShuttingDown = true;
+
     console.log(`[server] Received ${signal}. Shutting down gracefully...`);
-    httpServer.close(async () => {
-      await closeNotificationQueue();
-      await disconnectRedis();
-      console.log('[server] HTTP server closed.');
-      process.exit(0);
-    });
 
     // Force exit after 10 seconds if server hasn't closed
-    setTimeout(() => {
+    const forceTimer = setTimeout(() => {
       console.error('[server] Forced shutdown after timeout.');
       process.exit(1);
     }, 10_000).unref();
+
+    httpServer.close(async () => {
+      console.log('[server] HTTP server closed.');
+
+      try {
+        await closeNotificationQueue();
+      } catch (err) {
+        console.error('[server] Error closing notification queue:', (err as Error).message);
+      }
+
+      try {
+        await disconnectRedis();
+      } catch (err) {
+        console.error('[server] Error disconnecting Redis:', (err as Error).message);
+      }
+
+      try {
+        await disconnectDB();
+      } catch (err) {
+        console.error('[server] Error disconnecting database:', (err as Error).message);
+      }
+
+      clearTimeout(forceTimer);
+      console.log('[server] Graceful shutdown complete.');
+      process.exit(0);
+    });
   };
 
   process.on('SIGTERM', () => shutdown('SIGTERM'));

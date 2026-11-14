@@ -1,5 +1,6 @@
 import { Queue } from 'bullmq';
 import { env } from '../../config/env';
+import { getBullMQConnection } from '../../config/redis';
 import type { TaskDeadlineJobData } from '../jobs/taskDeadline.job';
 import { NOTIFICATION_QUEUE_NAME } from '../jobs/taskDeadline.job';
 
@@ -19,10 +20,7 @@ let notificationQueue: Queue<TaskDeadlineJobData> | null = null;
 export function getNotificationQueue(): Queue<TaskDeadlineJobData> {
   if (!notificationQueue) {
     notificationQueue = new Queue<TaskDeadlineJobData>(NOTIFICATION_QUEUE_NAME, {
-      connection: {
-        host: new URL(env.REDIS_URL).hostname,
-        port: parseInt(new URL(env.REDIS_URL).port || '6379', 10),
-      },
+      connection: getBullMQConnection(),
       defaultJobOptions: {
         attempts: 3,
         backoff: {

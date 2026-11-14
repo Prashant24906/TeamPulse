@@ -144,14 +144,15 @@ export async function deleteTeam(userId: string, teamId: string, projectId?: str
   if (!role) throw new AppError(403, 'You are not a member of this team');
   if (role !== 'OWNER') throw new AppError(403, 'Only the OWNER can delete the team');
 
-  // Emit BEFORE deleting so all members currently in the room receive the
-  // event while the Socket.IO room still exists (in-memory).
-  emitToTeam(teamId, WS_EVENTS.TEAM_DELETED, { teamId });
-
   await teamRepo.deleteTeam(teamId);
 
   // Invalidate cache
   await cacheInvalidate(CacheKeys.team(teamId));
+
+  // Emit AFTER the DB delete so the event is only sent when the team is
+  // confirmed gone — prevents clients reacting to a deletion that never
+  // completed due to a DB error.
+  emitToTeam(teamId, WS_EVENTS.TEAM_DELETED, { teamId });
 }
 
 // ---------------------------------------------------------------------------
