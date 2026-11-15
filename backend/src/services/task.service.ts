@@ -6,9 +6,66 @@ import type { TeamRole } from '../repositories/team.repository';
 import type { CreateTaskInput, UpdateTaskInput } from '../validators/task.validator';
 import { emitToTeam } from '../websocket/emit';
 import { WS_EVENTS } from '../websocket/events';
-import { scheduleTaskDeadlineJob, removeTaskDeadlineJob } from '../jobs/queues/notification.queue';
+import { scheduleTaskDeadlineJob, removeAllDeadlineJobs } from '../jobs/queues/notification.queue';
 import { isRedisReady } from '../config/redis';
 import { assertTeamBelongsToProject } from './team.guard';
+
+// ---------------------------------------------------------------------------
+// Helper — schedule both TASK_DUE_SOON and TASK_OVERDUE jobs for a task
+// ---------------------------------------------------------------------------
+
+async function scheduleDeadlineNotifications(
+  task: { id: string; name: string; due_date: Date | null; assigned_to: string | null; created_by: string },
+  team: { id: string; project_id: string }
+): Promise<void> {
+  if (!task.due_date || !isRedisReady()) return;
+
+  // Always remove any previous deadline jobs first
+  await removeAllDeadlineJobs(task.id);
+
+  const dueMs = new Date(task.due_date).getTime();
+  const nowMs = Date.now();
+
+  const baseData = {
+    taskId:     task.id,
+    taskName:   task.name,
+    projectId:  team.project_id,
+    teamId:     team.id,
+    assignedTo: task.assigned_to,
+    createdBy:  task.created_by,
+    dueDate:    task.due_date instanceof Date ? task.due_date.toISOString() : String(task.due_date),
+  };
+
+  const ONE_HOUR_MS = 60 * 60 * 1000;
+
+  // TASK_DUE_SOON — fire 1 hour before the deadline
+  const dueSoonMs = dueMs - ONE_HOUR_MS;
+  if (dueSoonMs > nowMs) {
+    // More than 1 hour left → schedule 1hr before deadline
+    await scheduleTaskDeadlineJob(
+      `due_soon_${task.id}`,
+      { ...baseData, type: 'TASK_DUE_SOON' },
+      dueSoonMs - nowMs
+    );
+  } else if (dueMs > nowMs) {
+    // Less than 1 hour left but not yet overdue → fire immediately
+    await scheduleTaskDeadlineJob(
+      `due_soon_${task.id}`,
+      { ...baseData, type: 'TASK_DUE_SOON' },
+      0
+    );
+  }
+  // If dueMs <= nowMs, deadline already passed — skip DUE_SOON entirely
+
+  // TASK_OVERDUE — fire exactly at the deadline
+  if (dueMs > nowMs) {
+    await scheduleTaskDeadlineJob(
+      `overdue_${task.id}`,
+      { ...baseData, type: 'TASK_OVERDUE' },
+      dueMs - nowMs
+    );
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Helper — auth chain: taskId → task.team_id → team.project_id → project role
@@ -72,27 +129,8 @@ export async function createTask(
     priority:  task.priority,
   });
 
-  // Schedule a deadline notification job if due_date is set
-  if (task.due_date && isRedisReady()) {
-    const dueMs   = new Date(task.due_date).getTime();
-    const nowMs   = Date.now();
-    const delayMs = Math.max(0, dueMs - nowMs);
-
-    await scheduleTaskDeadlineJob(
-      `deadline:${task.id}`,
-      {
-        taskId:     task.id,
-        taskName:   task.name,
-        projectId:  team.project_id,
-        teamId,
-        assignedTo: task.assigned_to,
-        createdBy:  task.created_by,
-        dueDate:    task.due_date.toISOString(),
-        type:       'TASK_DUE_SOON',
-      },
-      delayMs
-    );
-  }
+  // Schedule deadline notification jobs if due_date is set
+  await scheduleDeadlineNotifications(task, team);
 
   return task;
 }
@@ -156,29 +194,17 @@ export async function updateTask(
     });
   }
 
-  // Reschedule or remove deadline job when due_date changes
-  if (isRedisReady() && input.due_date !== undefined) {
-    if (input.due_date === null) {
-      await removeTaskDeadlineJob(`deadline:${updated.id}`);
-    } else {
-      const dueMs   = new Date(input.due_date).getTime();
-      const nowMs   = Date.now();
-      const delayMs = Math.max(0, dueMs - nowMs);
+  // Reschedule when due_date OR assigned_to changes (new assignee needs fresh notification jobs)
+  const dueDateChanged  = input.due_date !== undefined;
+  const assigneeChanged = input.assigned_to !== undefined;
 
-      await scheduleTaskDeadlineJob(
-        `deadline:${updated.id}`,
-        {
-          taskId:     updated.id,
-          taskName:   updated.name,
-          projectId:  team?.project_id ?? '',
-          teamId:     updated.team_id,
-          assignedTo: updated.assigned_to,
-          createdBy:  updated.created_by,
-          dueDate:    input.due_date,
-          type:       'TASK_DUE_SOON',
-        },
-        delayMs
-      );
+  if (isRedisReady() && (dueDateChanged || assigneeChanged)) {
+    if (dueDateChanged && input.due_date === null) {
+      // due_date cleared — cancel all jobs
+      await removeAllDeadlineJobs(updated.id);
+    } else if (team) {
+      // Reschedule with the latest due_date and assigned_to on the updated task
+      await scheduleDeadlineNotifications(updated, team);
     }
   }
 
@@ -205,6 +231,11 @@ export async function closeTask(userId: string, taskId: string) {
       projectId: team.project_id,
       taskId:    task.id,
     });
+  }
+
+  // Cancel all deadline jobs — no notifications for a closed task
+  if (isRedisReady()) {
+    await removeAllDeadlineJobs(task.id);
   }
 
   return closed;
@@ -234,6 +265,9 @@ export async function reopenTask(userId: string, taskId: string) {
       projectId: team.project_id,
       taskId:    task.id,
     });
+
+    // Re-schedule deadline notifications if the task still has a future due_date
+    await scheduleDeadlineNotifications(reopened, team);
   }
 
   return reopened;
@@ -267,7 +301,7 @@ export async function deleteTask(userId: string, taskId: string) {
   await taskRepo.deleteTask(task.id);
 
   if (isRedisReady()) {
-    await removeTaskDeadlineJob(`deadline:${task.id}`);
+    await removeAllDeadlineJobs(task.id);
   }
 
   if (team) {

@@ -81,6 +81,21 @@ export async function removeTaskDeadlineJob(jobId: string): Promise<void> {
   }
 }
 
+/**
+ * Remove ALL deadline-related jobs for a given task.
+ *
+ * Job ID formats (no colons — BullMQ forbids them):
+ *   - `due_soon_${taskId}`  (fires 1 hour before deadline)
+ *   - `overdue_${taskId}`   (fires at deadline)
+ *   - `deadline_${taskId}`  (legacy format — backward-compatible cleanup)
+ */
+export async function removeAllDeadlineJobs(taskId: string): Promise<void> {
+  const ids = [`due_soon_${taskId}`, `overdue_${taskId}`, `deadline_${taskId}`];
+  for (const id of ids) {
+    await removeTaskDeadlineJob(id);
+  }
+}
+
 export async function closeNotificationQueue(): Promise<void> {
   if (notificationQueue) {
     await notificationQueue.close();

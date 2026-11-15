@@ -5,6 +5,7 @@ import { connectRedis, disconnectRedis } from './config/redis';
 import { closeNotificationQueue } from './jobs/queues/notification.queue';
 import app from './app';
 import { initSocket } from './websocket/socket';
+import { initNotificationSubscriber, closeNotificationSubscriber } from './websocket/notificationSubscriber';
 
 // ---------------------------------------------------------------------------
 // server.ts — entry point
@@ -26,6 +27,10 @@ async function start(): Promise<void> {
   // 3. Create HTTP server and attach Socket.IO to it
   const httpServer = createServer(app);
   initSocket(httpServer);
+
+  // 4. Start the Redis Pub/Sub bridge that delivers real-time notifications
+  //    (the worker publishes; this subscriber pushes via Socket.IO)
+  initNotificationSubscriber();
 
   // 3. Start listening
   httpServer.listen(env.PORT, () => {
@@ -57,6 +62,12 @@ async function start(): Promise<void> {
         await closeNotificationQueue();
       } catch (err) {
         console.error('[server] Error closing notification queue:', (err as Error).message);
+      }
+
+      try {
+        await closeNotificationSubscriber();
+      } catch (err) {
+        console.error('[server] Error closing notification subscriber:', (err as Error).message);
       }
 
       try {

@@ -29,6 +29,9 @@ export const WS_EVENTS = {
 
   // Chat events
   MESSAGE_CREATED: 'message.created',
+
+  // Notification events (user-specific, delivered via personal room)
+  NOTIFICATION_RECEIVED: 'notification.received',
 } as const;
 
 export type WsEvent = typeof WS_EVENTS[keyof typeof WS_EVENTS];

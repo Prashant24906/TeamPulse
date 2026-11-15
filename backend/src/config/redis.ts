@@ -106,4 +106,22 @@ export async function disconnectRedis(): Promise<void> {
   }
 }
 
+/**
+ * Create a fresh Redis connection suitable for pub/sub use.
+ *
+ * Redis subscriber connections cannot issue regular commands while
+ * in subscribe mode, so pub and sub each need their own connection.
+ * This factory function returns a new ioredis instance every time
+ * it is called — callers are responsible for closing it.
+ */
+export function createPubSubConnection(): Redis {
+  return new Redis(env.REDIS_URL, {
+    lazyConnect: false,
+    maxRetriesPerRequest: null as unknown as number, // ioredis type quirk
+    enableReadyCheck: true,
+    retryStrategy: calculateRetryDelay,
+    tls: env.REDIS_URL.startsWith('rediss://') ? {} : undefined,
+  });
+}
+
 export default getRedis;

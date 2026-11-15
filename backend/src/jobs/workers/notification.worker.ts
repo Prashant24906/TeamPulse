@@ -1,14 +1,15 @@
 import { Worker, Job } from 'bullmq';
-import { env } from '../../config/env';
 import { connectDB } from '../../config/database';
-import { getBullMQConnection } from '../../config/redis';
+import { getBullMQConnection, createPubSubConnection } from '../../config/redis';
 import type { TaskDeadlineJobData } from '../jobs/taskDeadline.job';
 import { NOTIFICATION_QUEUE_NAME } from '../jobs/taskDeadline.job';
 import {
   persistNotification,
   getRecipients,
   buildMessage,
+  isTaskStillOpen,
 } from '../../services/notification.service';
+import type Redis from 'ioredis';
 
 // ---------------------------------------------------------------------------
 // notification.worker.ts — Separate worker process
@@ -19,13 +20,32 @@ import {
 // Responsibilities:
 //   - Connect to DB (needs it to persist notifications)
 //   - Process task-deadline jobs from the BullMQ queue
-//   - Retry up to 3 times (configured on the Queue)
+//   - Guard TASK_OVERDUE: skip if the task is already completed/closed
 //   - Persist notifications idempotently (ON CONFLICT DO NOTHING)
+//   - Publish to Redis 'notifications:push' channel after each persist
+//     so the HTTP server can deliver real-time WS events to the user
+//   - Retry up to 3 times (configured on the Queue)
 //   - Graceful shutdown on SIGTERM/SIGINT
 // ---------------------------------------------------------------------------
 
+const CHANNEL = 'notifications:push';
+
+let publisher: Redis | null = null;
+
 async function processJob(job: Job<TaskDeadlineJobData>): Promise<void> {
   console.log(`[worker] Processing job ${job.id} type=${job.data.type} taskId=${job.data.taskId}`);
+
+  // For TASK_OVERDUE, verify the task is still open.
+  // The task could have been completed or closed between scheduling and firing.
+  if (job.data.type === 'TASK_OVERDUE') {
+    const stillOpen = await isTaskStillOpen(job.data.taskId);
+    if (!stillOpen) {
+      console.log(
+        `[worker] Skipping TASK_OVERDUE for task ${job.data.taskId} — task is completed/closed`
+      );
+      return;
+    }
+  }
 
   const recipients = getRecipients(job.data);
   const message    = buildMessage(job.data);
@@ -47,6 +67,17 @@ async function processJob(job: Job<TaskDeadlineJobData>): Promise<void> {
       console.log(
         `[worker] Notification persisted — jobId=${job.id} userId=${userId} type=${job.data.type}`
       );
+
+      // Publish to the HTTP server's Redis subscriber for real-time delivery
+      if (publisher) {
+        try {
+          await publisher.publish(CHANNEL, JSON.stringify({ userId, notification: result }));
+          console.log(`[worker] Published to ${CHANNEL} for userId=${userId}`);
+        } catch (err) {
+          // Non-fatal — notification is already persisted in DB
+          console.error('[worker] Redis publish failed (non-fatal):', (err as Error).message);
+        }
+      }
     } else {
       skipped++;
       console.log(
@@ -64,6 +95,18 @@ async function start(): Promise<void> {
   // Worker needs its own DB connection (separate process from HTTP server)
   await connectDB();
   console.log('[worker] DB connected');
+
+  // Create a dedicated Redis publisher connection for Pub/Sub
+  try {
+    publisher = createPubSubConnection();
+    publisher.on('error', (err) => {
+      console.error('[worker] Redis publisher error (non-fatal):', err.message);
+    });
+    console.log('[worker] Redis publisher connected');
+  } catch (err) {
+    console.warn('[worker] Redis publisher failed to connect (non-fatal):', (err as Error).message);
+    publisher = null;
+  }
 
   const worker = new Worker<TaskDeadlineJobData>(
     NOTIFICATION_QUEUE_NAME,
@@ -96,12 +139,16 @@ async function start(): Promise<void> {
   // SIGTERM/SIGINT:
   //   1. Stop accepting new jobs
   //   2. Wait for in-progress jobs to complete (or timeout)
-  //   3. Close Redis connection
+  //   3. Close Redis connections
   // ---------------------------------------------------------------------------
 
   const shutdown = async (signal: string): Promise<void> => {
     console.log(`[worker] Received ${signal}. Shutting down gracefully...`);
     await worker.close();
+    if (publisher) {
+      await publisher.quit();
+      publisher = null;
+    }
     console.log('[worker] Worker closed. Exiting.');
     process.exit(0);
   };

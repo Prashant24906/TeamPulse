@@ -2,11 +2,12 @@ import sql from '../config/database';
 import type { TaskDeadlineJobData, NotificationType } from '../jobs/jobs/taskDeadline.job';
 
 // ---------------------------------------------------------------------------
-// notification.service.ts — persist a notification to PostgreSQL
+// notification.service.ts
 //
-// Called by the worker after a job fires.
-// Uses ON CONFLICT DO NOTHING for idempotency:
-//   same job × 2 → only one row inserted.
+// Responsibilities:
+//   - Persist notifications written by the worker process
+//   - Query, count, and mark notifications for the REST API
+//   - Check task status so TASK_OVERDUE is skipped for completed/closed tasks
 // ---------------------------------------------------------------------------
 
 export interface Notification {
@@ -63,4 +64,83 @@ export function buildMessage(data: TaskDeadlineJobData): string {
   return data.type === 'TASK_DUE_SOON'
     ? `Task "${data.taskName}" is due soon (${dueDate}).`
     : `Task "${data.taskName}" is overdue (was due ${dueDate}).`;
+}
+
+// ---------------------------------------------------------------------------
+// Query functions — called by the notification REST API
+// ---------------------------------------------------------------------------
+
+/**
+ * Retrieve paginated notifications for a user, newest first.
+ */
+export async function getNotificationsByUser(
+  userId: string,
+  limit = 20,
+  offset = 0
+): Promise<Notification[]> {
+  return sql<Notification[]>`
+    SELECT id, user_id, task_id, type, message, job_id, is_read, created_at
+    FROM notifications
+    WHERE user_id = ${userId}
+    ORDER BY created_at DESC
+    LIMIT ${limit} OFFSET ${offset}
+  `;
+}
+
+/**
+ * Count unread notifications for a user.
+ */
+export async function getUnreadNotificationCount(userId: string): Promise<number> {
+  const rows = await sql<{ count: string }[]>`
+    SELECT COUNT(*)::text AS count
+    FROM notifications
+    WHERE user_id = ${userId} AND is_read = FALSE
+  `;
+  return parseInt(rows[0]?.count ?? '0', 10);
+}
+
+/**
+ * Mark a single notification as read.
+ * Returns null if not found or if the notification belongs to a different user (IDOR protection).
+ */
+export async function markNotificationAsRead(
+  notificationId: string,
+  userId: string
+): Promise<Notification | null> {
+  const rows = await sql<Notification[]>`
+    UPDATE notifications
+    SET is_read = TRUE
+    WHERE id = ${notificationId} AND user_id = ${userId}
+    RETURNING id, user_id, task_id, type, message, job_id, is_read, created_at
+  `;
+  return rows[0] ?? null;
+}
+
+/**
+ * Mark all unread notifications as read for a user.
+ * Returns the count of rows updated.
+ */
+export async function markAllNotificationsAsRead(userId: string): Promise<number> {
+  const rows = await sql<{ count: string }[]>`
+    WITH updated AS (
+      UPDATE notifications
+      SET is_read = TRUE
+      WHERE user_id = ${userId} AND is_read = FALSE
+      RETURNING id
+    )
+    SELECT COUNT(*)::text AS count FROM updated
+  `;
+  return parseInt(rows[0]?.count ?? '0', 10);
+}
+
+/**
+ * Check whether a task is still open (not COMPLETED or CLOSED).
+ * Used by the worker to skip TASK_OVERDUE for already-finished tasks.
+ */
+export async function isTaskStillOpen(taskId: string): Promise<boolean> {
+  const rows = await sql<{ status: string }[]>`
+    SELECT status FROM tasks WHERE id = ${taskId}
+  `;
+  if (!rows[0]) return false;
+  return !['COMPLETED', 'CLOSED'].includes(rows[0].status);
 }

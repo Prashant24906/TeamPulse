@@ -10,6 +10,7 @@ import teamRouter    from './routes/team.routes';
 import projectRouter from './routes/project.routes';
 import taskRouter    from './routes/task.routes';
 import userRouter    from './routes/user.routes';
+import notificationRouter from './routes/notification.routes';
 import { apiRateLimit } from './middleware/rateLimit.middleware';
 
 const app = express();
@@ -63,11 +64,12 @@ app.get('/health', async (_req: Request, res: Response, next: NextFunction) => {
 // API routes — global rate limit applied here
 // ---------------------------------------------------------------------------
 app.use('/api', apiRateLimit);
-app.use('/api/auth',     authRouter);
-app.use('/api/projects', projectRouter);   // NEW: primary API root
-app.use('/api/teams',    teamRouter);      // kept for search + direct team access
-app.use('/api/tasks',    taskRouter);      // standalone task routes (PATCH/DELETE by taskId)
-app.use('/api/users',    userRouter);
+app.use('/api/auth',          authRouter);
+app.use('/api/projects',      projectRouter);   // NEW: primary API root
+app.use('/api/teams',         teamRouter);      // kept for search + direct team access
+app.use('/api/tasks',         taskRouter);      // standalone task routes (PATCH/DELETE by taskId)
+app.use('/api/users',         userRouter);
+app.use('/api/notifications', notificationRouter);
 
 // ---------------------------------------------------------------------------
 // 404 + error handlers — must be last
