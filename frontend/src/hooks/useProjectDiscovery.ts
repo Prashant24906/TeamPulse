@@ -11,6 +11,7 @@ export interface ProjectSearchResult {
   id: string;
   name: string;
   created_by: string;
+  owner_name: string;
   team_count: number;
   is_member: boolean;
   has_pending_request: boolean;

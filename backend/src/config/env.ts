@@ -1,8 +1,11 @@
-import dotenv from 'dotenv';
+import * as dotenv from 'dotenv';
 import path from 'path';
 
 // Load backend/.env (sits at backend/ root, two levels above this file)
-dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+const dotenvConfig = (dotenv as any)?.default?.config ?? (dotenv as any)?.config;
+if (typeof dotenvConfig === 'function') {
+  dotenvConfig({ path: path.resolve(__dirname, '../../.env') });
+}
 
 function required(key: string): string {
   const value = process.env[key];

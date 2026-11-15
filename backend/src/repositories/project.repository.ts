@@ -182,6 +182,7 @@ export interface ProjectSearchResult {
   id: string;
   name: string;
   created_by: string;
+  owner_name: string;
   team_count: number;
   is_member: boolean;
   has_pending_request: boolean;
@@ -209,6 +210,7 @@ export async function searchProjects(
       p.id,
       p.name,
       p.created_by,
+      COALESCE(u.name, 'Unknown')        AS owner_name,
       COUNT(DISTINCT t.id)::int          AS team_count,
       EXISTS (
         SELECT 1 FROM project_members pm2
@@ -221,9 +223,10 @@ export async function searchProjects(
            AND pjr.status     = 'PENDING'
       )                                  AS has_pending_request
     FROM projects p
+    LEFT JOIN users u ON u.id = p.created_by
     LEFT JOIN teams t ON t.project_id = p.id
     WHERE p.name ILIKE ${pattern}
-    GROUP BY p.id
+    GROUP BY p.id, u.name
     ORDER BY p.name ASC
   `;
 }

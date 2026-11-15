@@ -81,6 +81,9 @@ function ProjectCard({ project }: { project: ProjectSearchResult }) {
           <div className="min-w-0">
             <p className="text-gray-900 font-semibold text-sm sm:text-base truncate">{project.name}</p>
             <p className="text-gray-400 text-xs mt-0.5 flex items-center gap-1">
+              Owner: {project.owner_name}
+            </p>
+            <p className="text-gray-400 text-xs mt-0.5 flex items-center gap-1">
               <Users size={11} />
               {project.team_count} team{project.team_count !== 1 ? 's' : ''}
             </p>
