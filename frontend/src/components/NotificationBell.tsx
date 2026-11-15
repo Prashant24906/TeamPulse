@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Bell, CheckCheck, Clock, AlertCircle, Loader2, X } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Bell, CheckCheck, Clock, AlertCircle, UserCheck, Loader2, X } from 'lucide-react';
 import {
   useNotifications,
   useUnreadNotificationCount,
@@ -36,22 +37,36 @@ function timeAgo(isoString: string): string {
 
 function NotificationItem({
   notification,
-  onRead,
+  onClick,
 }: {
   notification: Notification;
-  onRead: (id: string) => void;
+  onClick: () => void;
 }) {
-  const isOverdue = notification.type === 'TASK_OVERDUE';
+  const isOverdue  = notification.type === 'TASK_OVERDUE';
+  const isAssigned = notification.type === 'TASK_ASSIGNED';
+
+  const icon = isAssigned
+    ? <UserCheck size={15} />
+    : isOverdue
+      ? <AlertCircle size={15} />
+      : <Clock size={15} />;
+
+  const iconColor = isAssigned
+    ? 'text-emerald-500'
+    : isOverdue
+      ? 'text-red-500'
+      : 'text-amber-500';
+
   return (
     <button
       type="button"
-      onClick={() => !notification.is_read && onRead(notification.id)}
+      onClick={onClick}
       className={`w-full text-left px-4 py-3 flex gap-3 items-start transition-colors hover:bg-gray-50 ${
         notification.is_read ? 'opacity-60' : ''
       }`}
     >
-      <span className={`mt-0.5 flex-shrink-0 ${isOverdue ? 'text-red-500' : 'text-amber-500'}`}>
-        {isOverdue ? <AlertCircle size={15} /> : <Clock size={15} />}
+      <span className={`mt-0.5 flex-shrink-0 ${iconColor}`}>
+        {icon}
       </span>
       <div className="flex-1 min-w-0">
         <p className={`text-xs leading-snug ${notification.is_read ? 'text-gray-500' : 'text-gray-800 font-medium'}`}>
@@ -67,6 +82,7 @@ function NotificationItem({
 }
 
 export default function NotificationBell({ align = 'left' }: NotificationBellProps) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -74,6 +90,16 @@ export default function NotificationBell({ align = 'left' }: NotificationBellPro
   const { data: notifications = [], isLoading, isError } = useNotifications();
   const markRead    = useMarkNotificationRead();
   const markAllRead = useMarkAllNotificationsRead();
+
+  const handleNotificationClick = (notification: Notification) => {
+    if (!notification.is_read) {
+      markRead.mutate(notification.id);
+    }
+    setOpen(false);
+    if (notification.project_id && notification.team_id) {
+      router.push(`/projects/${notification.project_id}/teams/${notification.team_id}`);
+    }
+  };
 
   // Close dropdown on outside click or touch
   useEffect(() => {
@@ -189,7 +215,7 @@ export default function NotificationBell({ align = 'left' }: NotificationBellPro
               <NotificationItem
                 key={n.id}
                 notification={n}
-                onRead={(id) => markRead.mutate(id)}
+                onClick={() => handleNotificationClick(n)}
               />
             ))}
           </div>

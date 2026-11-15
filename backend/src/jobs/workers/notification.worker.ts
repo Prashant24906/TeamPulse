@@ -71,7 +71,17 @@ async function processJob(job: Job<TaskDeadlineJobData>): Promise<void> {
       // Publish to the HTTP server's Redis subscriber for real-time delivery
       if (publisher) {
         try {
-          await publisher.publish(CHANNEL, JSON.stringify({ userId, notification: result }));
+          await publisher.publish(
+            CHANNEL,
+            JSON.stringify({
+              userId,
+              notification: {
+                ...result,
+                team_id: job.data.teamId,
+                project_id: job.data.projectId,
+              },
+            })
+          );
           console.log(`[worker] Published to ${CHANNEL} for userId=${userId}`);
         } catch (err) {
           // Non-fatal — notification is already persisted in DB

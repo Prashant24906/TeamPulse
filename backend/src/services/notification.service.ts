@@ -1,19 +1,29 @@
 import sql from '../config/database';
 import type { TaskDeadlineJobData, NotificationType } from '../jobs/jobs/taskDeadline.job';
+import { createPubSubConnection } from '../config/redis';
 
 // ---------------------------------------------------------------------------
 // notification.service.ts
 //
 // Responsibilities:
-//   - Persist notifications written by the worker process
+//   - Persist notifications written by the worker process (deadline jobs)
+//   - Persist TASK_ASSIGNED notifications directly from the HTTP process
 //   - Query, count, and mark notifications for the REST API
 //   - Check task status so TASK_OVERDUE is skipped for completed/closed tasks
+//
+// Real-time delivery:
+//   Deadline notifications: worker persists → Redis publish → HTTP subscriber → emitToUser
+//   Assignment notifications: HTTP process persists + publishes → Redis subscriber → emitToUser
 // ---------------------------------------------------------------------------
+
+const NOTIFICATION_CHANNEL = 'notifications:push';
 
 export interface Notification {
   id: string;
   user_id: string;
   task_id: string;
+  team_id?: string | null;
+  project_id?: string | null;
   type: NotificationType;
   message: string;
   job_id: string;
@@ -44,6 +54,63 @@ export async function persistNotification(
   return rows[0] ?? null;
 }
 
+// ---------------------------------------------------------------------------
+// TASK_ASSIGNED — synchronous notification from the HTTP process
+//
+// Unlike deadline notifications (which go through BullMQ worker), assignment
+// notifications are lightweight and synchronous: persist directly then publish
+// to Redis so the subscriber pushes to the assignee's Socket.IO room.
+// ---------------------------------------------------------------------------
+
+/**
+ * Notify a user they have been assigned a task.
+ *
+ * @param jobId       Stable idempotency key — `assign_${taskId}_${assignedTo}`
+ * @param taskId      The task being assigned
+ * @param assignedTo  The user being assigned
+ * @param assignerName  Display name of the person doing the assigning
+ * @param taskName    Name of the task
+ */
+export async function notifyTaskAssigned(
+  jobId: string,
+  taskId: string,
+  assignedTo: string,
+  assignerName: string,
+  taskName: string,
+  teamId?: string,
+  projectId?: string
+): Promise<void> {
+  const message = `${assignerName} assigned you a task: ${taskName}`;
+
+  const notification = await persistNotification(jobId, assignedTo, taskId, 'TASK_ASSIGNED', message);
+
+  if (!notification) {
+    // Duplicate — idempotency guard already prevented a double insert
+    return;
+  }
+
+  // Best-effort: publish to Redis so the HTTP subscriber can deliver in real-time.
+  // Failure is non-fatal — the notification is already persisted in DB.
+  try {
+    const publisher = createPubSubConnection();
+    await publisher.publish(
+      NOTIFICATION_CHANNEL,
+      JSON.stringify({
+        userId: assignedTo,
+        notification: {
+          ...notification,
+          team_id: teamId ?? null,
+          project_id: projectId ?? null,
+        },
+      })
+    );
+    // Quit immediately — this is a fire-and-forget one-shot publish
+    await publisher.quit();
+  } catch (err) {
+    console.error('[notification] Redis publish failed for TASK_ASSIGNED (non-fatal):', (err as Error).message);
+  }
+}
+
 /**
  * Build recipient list for a task deadline job.
  * Notifies: assigned_to user (if set), otherwise the task creator.
@@ -72,6 +139,7 @@ export function buildMessage(data: TaskDeadlineJobData): string {
 
 /**
  * Retrieve paginated notifications for a user, newest first.
+ * Includes team_id and project_id joined from tasks/teams for frontend navigation.
  */
 export async function getNotificationsByUser(
   userId: string,
@@ -79,10 +147,22 @@ export async function getNotificationsByUser(
   offset = 0
 ): Promise<Notification[]> {
   return sql<Notification[]>`
-    SELECT id, user_id, task_id, type, message, job_id, is_read, created_at
-    FROM notifications
-    WHERE user_id = ${userId}
-    ORDER BY created_at DESC
+    SELECT 
+      n.id, 
+      n.user_id, 
+      n.task_id, 
+      n.type, 
+      n.message, 
+      n.job_id, 
+      n.is_read, 
+      n.created_at,
+      t.team_id,
+      tm.project_id
+    FROM notifications n
+    LEFT JOIN tasks t ON t.id = n.task_id
+    LEFT JOIN teams tm ON tm.id = t.team_id
+    WHERE n.user_id = ${userId}
+    ORDER BY n.created_at DESC
     LIMIT ${limit} OFFSET ${offset}
   `;
 }
@@ -108,10 +188,26 @@ export async function markNotificationAsRead(
   userId: string
 ): Promise<Notification | null> {
   const rows = await sql<Notification[]>`
-    UPDATE notifications
-    SET is_read = TRUE
-    WHERE id = ${notificationId} AND user_id = ${userId}
-    RETURNING id, user_id, task_id, type, message, job_id, is_read, created_at
+    WITH updated AS (
+      UPDATE notifications
+      SET is_read = TRUE
+      WHERE id = ${notificationId} AND user_id = ${userId}
+      RETURNING id, user_id, task_id, type, message, job_id, is_read, created_at
+    )
+    SELECT 
+      u.id, 
+      u.user_id, 
+      u.task_id, 
+      u.type, 
+      u.message, 
+      u.job_id, 
+      u.is_read, 
+      u.created_at,
+      t.team_id,
+      tm.project_id
+    FROM updated u
+    LEFT JOIN tasks t ON t.id = u.task_id
+    LEFT JOIN teams tm ON tm.id = t.team_id
   `;
   return rows[0] ?? null;
 }

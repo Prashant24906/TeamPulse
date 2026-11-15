@@ -2,6 +2,7 @@ import { AppError } from '../middleware/error.middleware';
 import * as taskRepo    from '../repositories/task.repository';
 import * as teamRepo    from '../repositories/team.repository';
 import * as projectRepo from '../repositories/project.repository';
+import * as userRepo    from '../repositories/user.repository';
 import type { TeamRole } from '../repositories/team.repository';
 import type { CreateTaskInput, UpdateTaskInput } from '../validators/task.validator';
 import { emitToTeam } from '../websocket/emit';
@@ -9,6 +10,7 @@ import { WS_EVENTS } from '../websocket/events';
 import { scheduleTaskDeadlineJob, removeAllDeadlineJobs } from '../jobs/queues/notification.queue';
 import { isRedisReady } from '../config/redis';
 import { assertTeamBelongsToProject } from './team.guard';
+import { notifyTaskAssigned } from './notification.service';
 
 // ---------------------------------------------------------------------------
 // Helper — schedule both TASK_DUE_SOON and TASK_OVERDUE jobs for a task
@@ -132,6 +134,22 @@ export async function createTask(
   // Schedule deadline notification jobs if due_date is set
   await scheduleDeadlineNotifications(task, team);
 
+  // Notify the assignee — only when assigned to someone other than the creator
+  if (task.assigned_to && task.assigned_to !== userId) {
+    const assigner = await userRepo.findById(userId);
+    if (assigner) {
+      await notifyTaskAssigned(
+        `assign_${task.id}_${task.assigned_to}`,
+        task.id,
+        task.assigned_to,
+        assigner.name,
+        task.name,
+        teamId,
+        team.project_id
+      );
+    }
+  }
+
   return task;
 }
 
@@ -205,6 +223,36 @@ export async function updateTask(
     } else if (team) {
       // Reschedule with the latest due_date and assigned_to on the updated task
       await scheduleDeadlineNotifications(updated, team);
+    }
+  }
+
+  // Notify the new assignee when assigned_to genuinely changes to a different user
+  //   - Skip if unassigned (null)
+  //   - Skip if the same user was already the assignee (no real change)
+  //   - Skip if the updater is assigning the task to themselves
+  const newAssignee = input.assigned_to;
+  const prevAssignee = task.assigned_to;
+  const isGenuineNewAssignment =
+    newAssignee != null &&                // not unassigning
+    newAssignee !== prevAssignee &&       // actually changed
+    newAssignee !== userId;              // not self-assignment
+
+  if (isGenuineNewAssignment) {
+    const assigner = await userRepo.findById(userId);
+    if (assigner) {
+      // Use a job_id that is scoped to this specific assignment event.
+      // Including a timestamp component (second-precision) prevents the idempotency
+      // key from blocking a legitimate re-assignment after the task was first unassigned.
+      const epoch = Math.floor(Date.now() / 1000);
+      await notifyTaskAssigned(
+        `assign_${updated.id}_${newAssignee}_${epoch}`,
+        updated.id,
+        newAssignee,
+        assigner.name,
+        updated.name,
+        team?.id,
+        team?.project_id
+      );
     }
   }
 
