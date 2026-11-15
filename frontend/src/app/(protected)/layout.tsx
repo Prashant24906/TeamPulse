@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth, useLogout } from '@/hooks/useAuth';
 import { useSocket } from '@/hooks/useSocket';
+import NotificationBell from '@/components/NotificationBell';
 import {
   LayoutDashboard, Users, LogOut, Loader2,
   Search, UserCircle, Menu, X,
@@ -23,14 +24,15 @@ function DesktopSidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="hidden md:flex w-60 flex-shrink-0 bg-white border-r border-gray-200 flex-col">
+    <aside className="hidden md:flex w-60 flex-shrink-0 bg-white border-r border-gray-200 flex-col relative z-30">
       {/* Logo */}
-      <div className="px-6 py-5 border-b border-gray-200">
+      <div className="px-6 py-5 border-b border-gray-200 flex items-center justify-between">
         <Link href="/">
           <span className="text-xl font-bold bg-gradient-to-r from-emerald-600 to-teal-500 bg-clip-text text-transparent">
             TeamPulse
           </span>
         </Link>
+        <NotificationBell align="left" />
       </div>
 
       {/* Navigation */}
@@ -119,6 +121,7 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
         </Link>
 
         <div className="flex items-center gap-2">
+          <NotificationBell align="right" />
           <Link
             href="/profile"
             className="h-8 w-8 rounded-full bg-emerald-50 text-emerald-700 font-bold text-xs flex items-center justify-center border border-emerald-200"

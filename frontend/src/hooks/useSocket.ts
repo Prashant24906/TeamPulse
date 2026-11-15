@@ -175,6 +175,11 @@ export function useSocket() {
       qc.setQueryData<TeamMessage[]>(['messages', payload.teamId], [...existing, newMsg]);
     });
 
+    // Notification events — invalidate cache so the bell and dropdown refresh
+    socket.on('notification.received', () => {
+      qc.invalidateQueries({ queryKey: ['notifications'] });
+    });
+
     return () => {
       socket.off('task.created');
       socket.off('task.updated');
@@ -192,6 +197,7 @@ export function useSocket() {
       socket.off('team.join_request_updated');
       socket.off('team.deleted');
       socket.off('message.created');
+      socket.off('notification.received');
       disconnectSocket();
     };
   }, [qc, router, pathname]);
