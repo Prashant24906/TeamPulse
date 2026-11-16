@@ -13,9 +13,10 @@ import { useAuth } from '@/hooks/useAuth';
 import { useProjectJoinRequests, useResolveProjectJoinRequest } from '@/hooks/useProjectDiscovery';
 import {
   ArrowLeft, Users, Plus, Trash2, ChevronRight, Loader2, AlertCircle, X,
-  FolderOpen, Bell, Check, XCircle, UserCircle, UserMinus, Link2, LogOut,
+  FolderOpen, Bell, Check, XCircle, UserCircle, UserMinus, Link2, LogOut, MessageSquare,
 } from 'lucide-react';
 import { ProjectResources } from '@/components/ProjectResources';
+import { ProjectChatPanel } from '@/components/chat/ProjectChatPanel';
 import type { ProjectRole } from '@/types/project';
 import { z } from 'zod';
 
@@ -147,9 +148,9 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
 
   const searchParams = useSearchParams();
   const [showCreateTeam, setShowCreateTeam] = useState(false);
-  const [activeTab, setActiveTab]           = useState<'teams' | 'resources' | 'members' | 'requests'>(() => {
+  const [activeTab, setActiveTab]           = useState<'teams' | 'resources' | 'chat' | 'members' | 'requests'>(() => {
     const tab = searchParams.get('tab');
-    if (tab === 'requests' || tab === 'resources' || tab === 'members' || tab === 'teams') {
+    if (tab === 'requests' || tab === 'resources' || tab === 'chat' || tab === 'members' || tab === 'teams') {
       return tab;
     }
     return 'teams';
@@ -157,7 +158,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
 
   useEffect(() => {
     const tab = searchParams.get('tab');
-    if (tab === 'requests' || tab === 'resources' || tab === 'members' || tab === 'teams') {
+    if (tab === 'requests' || tab === 'resources' || tab === 'chat' || tab === 'members' || tab === 'teams') {
       setActiveTab(tab);
     }
   }, [searchParams]);
@@ -295,6 +296,18 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
           <Link2 size={13} />
           Resources
         </button>
+        <button
+          id="chat-tab-btn"
+          onClick={() => setActiveTab('chat')}
+          className={`flex items-center gap-1.5 px-4 py-2 text-xs sm:text-sm font-medium border-b-2 whitespace-nowrap transition ${
+            activeTab === 'chat'
+              ? 'border-emerald-600 text-emerald-700 font-semibold'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <MessageSquare size={13} />
+          Chat
+        </button>
         {isOwnerOrAdmin && (
           <>
             <button
@@ -382,6 +395,17 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
           projectId={projectId}
           isOwnerOrAdmin={isOwnerOrAdmin}
         />
+      )}
+
+      {/* ── Chat tab ────────────────────────────────────────────── */}
+      {activeTab === 'chat' && (
+        <div className="h-[600px] sm:h-[680px] w-full border border-gray-800 rounded-2xl overflow-hidden flex flex-col shadow-lg">
+          <ProjectChatPanel
+            projectId={projectId}
+            projectName={project.name}
+            memberCount={members?.length}
+          />
+        </div>
       )}
 
       {/* ── Join Requests tab ───────────────────────────────────── */}

@@ -3,7 +3,8 @@ import { Server as SocketIOServer, Socket } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import { env } from '../config/env';
 import { createCorsOriginValidator } from '../config/cors';
-import * as teamRepo from '../repositories/team.repository';
+import * as teamRepo    from '../repositories/team.repository';
+import * as projectRepo from '../repositories/project.repository';
 
 // ---------------------------------------------------------------------------
 // Module-level Socket.IO instance — accessed via getIO()
@@ -42,6 +43,10 @@ export function teamRoom(teamId: string): string {
 
 export function userRoom(userId: string): string {
   return `user:${userId}`;
+}
+
+export function projectRoom(projectId: string): string {
+  return `project:${projectId}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -147,7 +152,22 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
         console.log(`[ws] ${userId} auto-joined ${teamRoom(team.id)}`);
       }
     } catch (err) {
-      console.error('[ws] Failed to auto-join rooms:', err);
+      console.error('[ws] Failed to auto-join team rooms:', err);
+    }
+
+    // -----------------------------------------------------------------------
+    // Auto-join all project rooms for this user.
+    // Project IDs come from the DATABASE — never from the client.
+    // -----------------------------------------------------------------------
+
+    try {
+      const projects = await projectRepo.findProjectsByUserId(userId);
+      for (const project of projects) {
+        await socket.join(projectRoom(project.id));
+        console.log(`[ws] ${userId} auto-joined ${projectRoom(project.id)}`);
+      }
+    } catch (err) {
+      console.error('[ws] Failed to auto-join project rooms:', err);
     }
 
     // -----------------------------------------------------------------------
@@ -178,6 +198,38 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
         callback?.();
       } catch (err) {
         console.error('[ws] join:team error:', err);
+        callback?.('Internal error');
+      }
+    });
+
+    // -----------------------------------------------------------------------
+    // join:project — explicit project room join requested by the client.
+    //
+    // Security model:
+    //   1. Client sends the projectId it wants to join
+    //   2. Server checks project_members table (DB, never trusted from client)
+    //   3. Only join if membership is confirmed
+    //   4. Reject silently (or with callback error) otherwise
+    // -----------------------------------------------------------------------
+
+    socket.on('join:project', async (pId: string, callback?: (err?: string) => void) => {
+      try {
+        if (typeof pId !== 'string' || !pId) {
+          return callback?.('Invalid projectId');
+        }
+
+        const role = await projectRepo.findMemberRole(pId, userId);
+
+        if (!role) {
+          console.warn(`[ws] REJECTED join:project — userId=${userId} projectId=${pId} (not a member)`);
+          return callback?.('Not a member of this project');
+        }
+
+        await socket.join(projectRoom(pId));
+        console.log(`[ws] ${userId} joined ${projectRoom(pId)} (role=${role})`);
+        callback?.();
+      } catch (err) {
+        console.error('[ws] join:project error:', err);
         callback?.('Internal error');
       }
     });

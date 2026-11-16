@@ -1,4 +1,4 @@
-import { getIO, teamRoom, userRoom } from './socket';
+import { getIO, teamRoom, userRoom, projectRoom } from './socket';
 import type { WsEvent } from './events';
 
 // ---------------------------------------------------------------------------
@@ -20,6 +20,25 @@ export function emitToTeam(
     // Never let a WebSocket failure break the HTTP response.
     // The DB mutation already committed — the event is best-effort.
     console.error('[ws] emitToTeam failed (non-fatal):', err);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// emitToProject — emit a typed event to all sockets in a project room.
+//
+// Called from services AFTER the DB mutation succeeds.
+// ---------------------------------------------------------------------------
+
+export function emitToProject(
+  projectId: string,
+  event: WsEvent,
+  payload: Record<string, unknown>
+): void {
+  try {
+    getIO().to(projectRoom(projectId)).emit(event, payload);
+    console.log(`[ws] emit  event=${event} room=${projectRoom(projectId)}`);
+  } catch (err) {
+    console.error('[ws] emitToProject failed (non-fatal):', err);
   }
 }
 

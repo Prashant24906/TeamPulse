@@ -6,7 +6,7 @@ import type { CreateProjectInput, UpdateProjectInput } from '../validators/proje
 import { cacheGet, cacheSet, cacheInvalidate, CacheKeys } from '../utils/cache';
 import { emitToTeam, emitToUser } from '../websocket/emit';
 import { WS_EVENTS } from '../websocket/events';
-import { evictUserFromTeamRooms } from '../websocket/rooms';
+import { evictUserFromTeamRooms, evictUserFromProjectRoom } from '../websocket/rooms';
 import * as notificationService from './notification.service';
 
 // ---------------------------------------------------------------------------
@@ -145,6 +145,9 @@ export async function kickProjectMember(
   // Best-effort, non-fatal — DB mutations already committed.
   await evictUserFromTeamRooms(targetUserId, teamIds);
 
+  // Evict user's sockets from the project room (project chat access revoked)
+  await evictUserFromProjectRoom(targetUserId, projectId);
+
   // Notify user's active sessions that project membership was revoked
   emitToUser(targetUserId, WS_EVENTS.PROJECT_MEMBER_REMOVED, { projectId, userId: targetUserId });
 }
@@ -182,6 +185,9 @@ export async function leaveProject(userId: string, projectId: string): Promise<s
 
   // Evict user's sockets from all team rooms in this project
   await evictUserFromTeamRooms(userId, teamIds);
+
+  // Evict user's sockets from the project room (project chat access revoked)
+  await evictUserFromProjectRoom(userId, projectId);
 
   // Notify other active sessions of this user that project membership was revoked
   emitToUser(userId, WS_EVENTS.PROJECT_MEMBER_REMOVED, { projectId, userId });

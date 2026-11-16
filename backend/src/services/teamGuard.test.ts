@@ -75,8 +75,9 @@ vi.mock('../websocket/emit', () => ({
 }));
 
 vi.mock('../websocket/rooms', () => ({
-  evictUserFromTeamRoom:  vi.fn(),
-  evictUserFromTeamRooms: vi.fn(),
+  evictUserFromTeamRoom:    vi.fn(),
+  evictUserFromTeamRooms:   vi.fn(),
+  evictUserFromProjectRoom: vi.fn(),
 }));
 
 vi.mock('../utils/cache', () => ({

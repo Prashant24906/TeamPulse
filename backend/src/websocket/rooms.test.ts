@@ -45,6 +45,7 @@ function makeFakeIO(socketsInUserRoom: ReturnType<typeof makeFakeSocket>[]) {
 
 const teamRoom = (teamId: string) => `team:${teamId}`;
 const userRoom = (userId: string) => `user:${userId}`;
+const projectRoom = (projectId: string) => `project:${projectId}`;
 
 // ---------------------------------------------------------------------------
 // Mock the `./socket` module before importing the module under test.
@@ -56,10 +57,11 @@ vi.mock('../websocket/socket', () => ({
   getIO: () => fakeIO,
   teamRoom: (id: string) => `team:${id}`,
   userRoom: (id: string) => `user:${id}`,
+  projectRoom: (id: string) => `project:${id}`,
 }));
 
 // Static import — safe because vi.mock() above is hoisted before all imports.
-import { evictUserFromTeamRoom, evictUserFromTeamRooms } from '../websocket/rooms';
+import { evictUserFromTeamRoom, evictUserFromTeamRooms, evictUserFromProjectRoom } from '../websocket/rooms';
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -216,5 +218,40 @@ describe('evictUserFromTeamRooms', () => {
     expect(socket.leave).toHaveBeenCalledWith(teamRoom('team-1'));
     expect(socket.leave).not.toHaveBeenCalledWith(teamRoom('team-99'));
     expect(socket.leave).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('evictUserFromProjectRoom', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('test 13 — user with one active socket is removed from project room', async () => {
+    const socket = makeFakeSocket('s1');
+    fakeIO = makeFakeIO([socket]);
+
+    await evictUserFromProjectRoom('user-A', 'proj-1');
+
+    expect(fakeIO.in).toHaveBeenCalledWith(userRoom('user-A'));
+    expect(socket.leave).toHaveBeenCalledOnce();
+    expect(socket.leave).toHaveBeenCalledWith(projectRoom('proj-1'));
+  });
+
+  it('test 14 — user with multiple active sockets, all sockets are evicted from project room', async () => {
+    const s1 = makeFakeSocket('s1');
+    const s2 = makeFakeSocket('s2');
+    fakeIO = makeFakeIO([s1, s2]);
+
+    await evictUserFromProjectRoom('user-A', 'proj-1');
+
+    for (const s of [s1, s2]) {
+      expect(s.leave).toHaveBeenCalledOnce();
+      expect(s.leave).toHaveBeenCalledWith(projectRoom('proj-1'));
+    }
+  });
+
+  it('test 15 — user with no active connections is a no-op (no error thrown)', async () => {
+    fakeIO = makeFakeIO([]);
+    await expect(evictUserFromProjectRoom('user-A', 'proj-1')).resolves.toBeUndefined();
   });
 });

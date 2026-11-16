@@ -59,7 +59,8 @@ vi.mock('../websocket/emit', () => ({
 }));
 
 vi.mock('../websocket/rooms', () => ({
-  evictUserFromTeamRooms: vi.fn().mockResolvedValue(undefined),
+  evictUserFromTeamRooms:   vi.fn().mockResolvedValue(undefined),
+  evictUserFromProjectRoom: vi.fn().mockResolvedValue(undefined),
 }));
 
 describe('Globally Unique Project Names', () => {

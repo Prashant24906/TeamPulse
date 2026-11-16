@@ -113,8 +113,9 @@ vi.mock('../utils/cache', () => ({
 
 // -- websocket/rooms — the helpers under integration-test scrutiny --
 vi.mock('../websocket/rooms', () => ({
-  evictUserFromTeamRoom:  vi.fn().mockResolvedValue(undefined),
-  evictUserFromTeamRooms: vi.fn().mockResolvedValue(undefined),
+  evictUserFromTeamRoom:    vi.fn().mockResolvedValue(undefined),
+  evictUserFromTeamRooms:   vi.fn().mockResolvedValue(undefined),
+  evictUserFromProjectRoom: vi.fn().mockResolvedValue(undefined),
 }));
 
 // ---------------------------------------------------------------------------

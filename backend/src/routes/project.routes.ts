@@ -4,6 +4,7 @@ import * as projectController from '../controllers/project.controller';
 import * as taskController    from '../controllers/task.controller';
 import * as joinController    from '../controllers/teamJoinRequest.controller';
 import * as messageController from '../controllers/teamMessage.controller';
+import * as projectMessageController from '../controllers/projectMessage.controller';
 import * as teamController    from '../controllers/team.controller';
 import * as resourceController from '../controllers/projectResource.controller';
 
@@ -81,5 +82,14 @@ router.get('/:projectId/resources',                resourceController.getResourc
 router.post('/:projectId/resources',               resourceController.createResource);
 router.patch('/:projectId/resources/:resourceId',  resourceController.updateResource);
 router.delete('/:projectId/resources/:resourceId', resourceController.deleteResource);
+
+// ---------------------------------------------------------------------------
+// Project Chat
+// ---------------------------------------------------------------------------
+
+router.get('/:projectId/messages',                   projectMessageController.getMessages);
+router.post('/:projectId/messages',                  projectMessageController.sendMessage);
+router.patch('/:projectId/messages/:messageId',      projectMessageController.updateMessage);
+router.delete('/:projectId/messages/:messageId',     projectMessageController.deleteMessage);
 
 export default router;

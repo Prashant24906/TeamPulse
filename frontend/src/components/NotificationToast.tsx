@@ -21,7 +21,7 @@ export interface ToastItem {
   title: string;
   subtitle: string;
   preview?: string;
-  iconType: 'TEAM_MESSAGE' | 'TASK_ASSIGNED' | 'TASK_DUE_SOON' | 'TASK_OVERDUE' | 'PROJECT_JOIN_REQUEST' | 'TEAM_JOIN_REQUEST';
+  iconType: 'TEAM_MESSAGE' | 'PROJECT_MESSAGE' | 'TASK_ASSIGNED' | 'TASK_DUE_SOON' | 'TASK_OVERDUE' | 'PROJECT_JOIN_REQUEST' | 'TEAM_JOIN_REQUEST';
   isExiting: boolean;
 }
 
@@ -46,6 +46,31 @@ export function useNotificationToast() {
 
 export function parseToastDetails(notification: Notification) {
   const { type, message } = notification;
+
+  if (type === 'PROJECT_MESSAGE') {
+    const withPreview = message.match(/^(.*?)\s+sent a message in\s+([^:]+):\s*"([\s\S]*)"$/);
+    if (withPreview) {
+      return {
+        title: notification.sender_name || withPreview[1],
+        subtitle: `Sent a message in ${withPreview[2].trim()}`,
+        preview: `"${withPreview[3]}"`,
+        iconType: 'PROJECT_MESSAGE' as const,
+      };
+    }
+    const withoutPreview = message.match(/^(.*?)\s+sent a message in\s+(.*?)(\.)?$/);
+    if (withoutPreview) {
+      return {
+        title: notification.sender_name || withoutPreview[1],
+        subtitle: `Sent a message in ${withoutPreview[2].trim().replace(/\.$/, '')}`,
+        iconType: 'PROJECT_MESSAGE' as const,
+      };
+    }
+    return {
+      title: notification.sender_name || 'Project Message',
+      subtitle: message,
+      iconType: 'PROJECT_MESSAGE' as const,
+    };
+  }
 
   if (type === 'TEAM_MESSAGE') {
     // Expected format: "Alex sent a message in Backend Development: "preview"" or "Alex sent a message in Backend Development."
@@ -169,6 +194,12 @@ function ToastCard({
 
   const getIcon = () => {
     switch (toast.iconType) {
+      case 'PROJECT_MESSAGE':
+        return (
+          <div className="h-8 w-8 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 flex-shrink-0">
+            <MessageSquare size={14} />
+          </div>
+        );
       case 'TEAM_MESSAGE':
         return (
           <div className="h-8 w-8 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 flex-shrink-0">
@@ -320,7 +351,7 @@ export function NotificationToastProvider({ children }: { children: React.ReactN
       if (
         !notification.sender_id &&
         currentUser.name &&
-        notification.type === 'TEAM_MESSAGE' &&
+        (notification.type === 'TEAM_MESSAGE' || notification.type === 'PROJECT_MESSAGE') &&
         notification.message.startsWith(currentUser.name + ' sent a message')
       ) {
         return;
@@ -374,7 +405,9 @@ export function NotificationToastProvider({ children }: { children: React.ReactN
       dismissToast(toast.id);
 
       const notif = toast.notification;
-      if (notif.type === 'PROJECT_JOIN_REQUEST' && notif.project_id) {
+      if (notif.type === 'PROJECT_MESSAGE' && notif.project_id) {
+        router.push(`/projects/${notif.project_id}?tab=chat`);
+      } else if (notif.type === 'PROJECT_JOIN_REQUEST' && notif.project_id) {
         router.push(`/projects/${notif.project_id}?tab=requests`);
       } else if (notif.type === 'TEAM_JOIN_REQUEST' && notif.project_id && notif.team_id) {
         router.push(`/projects/${notif.project_id}/teams/${notif.team_id}?tab=requests`);

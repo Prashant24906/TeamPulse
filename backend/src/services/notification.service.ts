@@ -242,6 +242,113 @@ export async function notifyTeamMessage(
 }
 
 // ---------------------------------------------------------------------------
+// PROJECT_MESSAGE — transient real-time toast to all other project members
+//
+// Transient: does NOT insert into PostgreSQL, does NOT increase unread count,
+// does NOT appear in the notification bell dropdown. Publishes to Redis with
+// `transient: true` so the frontend displays an Instagram-style toast only.
+// ---------------------------------------------------------------------------
+
+/**
+ * Notify all project members (except the sender) that a message was posted.
+ * Transient only: delivers real-time toast without PostgreSQL persistence.
+ *
+ * @param messageId   ID of the posted project message
+ * @param projectId   ID of the project
+ * @param senderId    User ID of the sender (excluded from notifications)
+ * @param senderName  Display name of the sender
+ * @param content     Content of the message (preview will be truncated safely)
+ */
+export async function notifyProjectMessage(
+  messageId: string,
+  projectId: string,
+  senderId: string,
+  senderName: string,
+  content: string
+): Promise<void> {
+  // 1. Resolve project info
+  const project = await projectRepo.findProjectById(projectId);
+  if (!project) return;
+
+  const projectName = project.name;
+
+  // 2. Resolve recipients from project_members table — strictly excluding sender
+  const members = await projectRepo.findMembersByProject(projectId);
+  const recipients = members.filter((m) => m.user_id !== senderId);
+  if (recipients.length === 0) return;
+
+  // 3. Format message preview safely
+  const cleanContent = content.replace(/\s+/g, ' ').trim();
+  const preview = cleanContent.length > 60
+    ? cleanContent.substring(0, 57) + '...'
+    : cleanContent;
+  const messageText = preview
+    ? `${senderName} sent a message in ${projectName}: "${preview}"`
+    : `${senderName} sent a message in ${projectName}.`;
+
+  // 4. Connect Redis publisher for real-time delivery (best-effort)
+  let publisher: ReturnType<typeof createPubSubConnection> | null = null;
+  try {
+    publisher = createPubSubConnection();
+  } catch (err) {
+    console.error('[notification] Redis connection failed for PROJECT_MESSAGE (non-fatal):', (err as Error).message);
+  }
+
+  try {
+    for (const recipient of recipients) {
+      try {
+        const transientNotification = {
+          id: `transient_projmsg_${messageId}_${recipient.user_id}`,
+          user_id: recipient.user_id,
+          sender_id: senderId,
+          sender_name: senderName,
+          task_id: null,
+          team_id: null,
+          project_id: projectId,
+          message_id: messageId,
+          type: 'PROJECT_MESSAGE' as const,
+          message: messageText,
+          job_id: `projmsg_${messageId}`,
+          is_read: false,
+          created_at: new Date().toISOString(),
+          transient: true,
+        };
+
+        if (publisher) {
+          try {
+            await publisher.publish(
+              NOTIFICATION_CHANNEL,
+              JSON.stringify({
+                userId: recipient.user_id,
+                notification: transientNotification,
+              })
+            );
+          } catch (pubErr) {
+            console.error(
+              `[notification] Redis publish failed for project message recipient ${recipient.user_id} (non-fatal):`,
+              (pubErr as Error).message
+            );
+          }
+        }
+      } catch (recipErr) {
+        console.error(
+          `[notification] Failed to deliver transient PROJECT_MESSAGE for recipient ${recipient.user_id} (non-fatal):`,
+          (recipErr as Error).message
+        );
+      }
+    }
+  } finally {
+    if (publisher) {
+      try {
+        await publisher.quit();
+      } catch {
+        // silent
+      }
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // PROJECT_JOIN_REQUEST — persistent & real-time notification to project OWNER/ADMIN
 // ---------------------------------------------------------------------------
 

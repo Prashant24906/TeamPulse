@@ -17,7 +17,7 @@
 //     roll back an already-committed DB deletion.
 // ---------------------------------------------------------------------------
 
-import { getIO, userRoom, teamRoom } from './socket';
+import { getIO, userRoom, teamRoom, projectRoom } from './socket';
 
 /**
  * Evict every active socket that belongs to `userId` from `team:<teamId>`.
@@ -101,6 +101,41 @@ export async function evictUserFromTeamRooms(
   } catch (err) {
     console.error(
       `[ws] evictUserFromTeamRooms failed — userId=${userId}:`,
+      err
+    );
+  }
+}
+
+/**
+ * Evict every active socket belonging to `userId` from a project room.
+ *
+ * Called when a user is removed from a project so they stop receiving
+ * project chat messages immediately.
+ *
+ * @param userId    The user being removed.
+ * @param projectId The project they are being removed from.
+ */
+export async function evictUserFromProjectRoom(
+  userId: string,
+  projectId: string
+): Promise<void> {
+  try {
+    const io = getIO();
+    const sockets = await io.in(userRoom(userId)).fetchSockets();
+
+    if (sockets.length === 0) return;
+
+    await Promise.all(
+      sockets.map((socket) => socket.leave(projectRoom(projectId)))
+    );
+
+    console.log(
+      `[ws] evicted userId=${userId} from room=${projectRoom(projectId)} ` +
+      `(${sockets.length} socket(s) affected)`
+    );
+  } catch (err) {
+    console.error(
+      `[ws] evictUserFromProjectRoom failed — userId=${userId} projectId=${projectId}:`,
       err
     );
   }

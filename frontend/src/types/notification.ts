@@ -7,6 +7,7 @@ export type NotificationType =
   | 'TASK_OVERDUE'
   | 'TASK_ASSIGNED'
   | 'TEAM_MESSAGE'
+  | 'PROJECT_MESSAGE'
   | 'PROJECT_JOIN_REQUEST'
   | 'TEAM_JOIN_REQUEST';
 

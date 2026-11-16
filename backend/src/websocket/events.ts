@@ -30,8 +30,13 @@ export const WS_EVENTS = {
   TASK_CLOSED:   'task.closed',
   TASK_REOPENED: 'task.reopened',
 
-  // Chat events
+  // Team chat events
   MESSAGE_CREATED: 'message.created',
+
+  // Project chat events
+  PROJECT_MESSAGE_CREATED: 'project.message.created',
+  PROJECT_MESSAGE_UPDATED: 'project.message.updated',
+  PROJECT_MESSAGE_DELETED: 'project.message.deleted',
 
   // Notification events (user-specific, delivered via personal room)
   NOTIFICATION_RECEIVED: 'notification.received',
@@ -81,5 +86,26 @@ export interface MessageCreatedPayload {
   senderName: string;
   content: string;
   createdAt: Date;
+}
+
+export interface ProjectMessageCreatedPayload {
+  id: string;
+  projectId: string;
+  senderId: string;
+  senderName: string;
+  content: string;
+  createdAt: Date;
+}
+
+export interface ProjectMessageUpdatedPayload {
+  id: string;
+  projectId: string;
+  content: string;
+  updatedAt: Date;
+}
+
+export interface ProjectMessageDeletedPayload {
+  id: string;
+  projectId: string;
 }
 

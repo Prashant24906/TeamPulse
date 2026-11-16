@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { connectSocket, getSocket } from '@/lib/socket';
 import { getStoredToken } from '@/lib/api';
-import type { TeamMessage } from '@/types/message';
+import type { TeamMessage, ProjectMessage } from '@/types/message';
 import type { Team } from '@/types/team';
 import type { User } from '@/types/user';
 import type { Notification } from '@/types/notification';
@@ -223,7 +223,7 @@ export function useSocket() {
       }
     };
 
-    // Chat — append new message directly to the cache (no extra HTTP request).
+    // Chat — append new team message directly to the cache (no extra HTTP request).
     const onMessageCreated = (payload: {
       id: string; teamId: string; senderId: string;
       senderName: string; content: string; createdAt: string;
@@ -242,6 +242,47 @@ export function useSocket() {
         updated_at:  payload.createdAt,
       };
       qc.setQueryData<TeamMessage[]>(['messages', payload.teamId], [...existing, newMsg]);
+    };
+
+    // Project Chat — append new project message to cache
+    const onProjectMessageCreated = (payload: {
+      id: string; projectId: string; senderId: string;
+      senderName: string; content: string; createdAt: string;
+    }) => {
+      const existing = qc.getQueryData<ProjectMessage[]>(['project-messages', payload.projectId]);
+      if (existing === undefined) return;
+      if (existing.some((m) => m.id === payload.id)) return;
+
+      const newMsg: ProjectMessage = {
+        id:          payload.id,
+        project_id:  payload.projectId,
+        sender_id:   payload.senderId,
+        sender_name: payload.senderName,
+        content:     payload.content,
+        created_at:  payload.createdAt,
+        updated_at:  payload.createdAt,
+      };
+      qc.setQueryData<ProjectMessage[]>(['project-messages', payload.projectId], [...existing, newMsg]);
+    };
+
+    // Project Chat — update existing project message in cache
+    const onProjectMessageUpdated = (payload: {
+      id: string; projectId: string; content: string; updatedAt: string;
+    }) => {
+      qc.setQueryData<ProjectMessage[]>(['project-messages', payload.projectId], (prev = []) =>
+        prev.map((m) =>
+          m.id === payload.id
+            ? { ...m, content: payload.content, updated_at: payload.updatedAt }
+            : m
+        )
+      );
+    };
+
+    // Project Chat — remove deleted project message from cache
+    const onProjectMessageDeleted = (payload: { id: string; projectId: string }) => {
+      qc.setQueryData<ProjectMessage[]>(['project-messages', payload.projectId], (prev = []) =>
+        prev.filter((m) => m.id !== payload.id)
+      );
     };
 
     // Notification events — invalidate cache so the bell and dropdown refresh
@@ -276,6 +317,9 @@ export function useSocket() {
     socket.on('team.membership.accepted', onTeamMembershipAccepted);
     socket.on('team.deleted', onTeamDeleted);
     socket.on('message.created', onMessageCreated);
+    socket.on('project.message.created', onProjectMessageCreated);
+    socket.on('project.message.updated', onProjectMessageUpdated);
+    socket.on('project.message.deleted', onProjectMessageDeleted);
     socket.on('notification.received', onNotificationReceived);
 
     return () => {
@@ -298,6 +342,9 @@ export function useSocket() {
       socket.off('team.membership.accepted', onTeamMembershipAccepted);
       socket.off('team.deleted', onTeamDeleted);
       socket.off('message.created', onMessageCreated);
+      socket.off('project.message.created', onProjectMessageCreated);
+      socket.off('project.message.updated', onProjectMessageUpdated);
+      socket.off('project.message.deleted', onProjectMessageDeleted);
       socket.off('notification.received', onNotificationReceived);
     };
   }, [qc]);
