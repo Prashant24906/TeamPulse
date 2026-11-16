@@ -74,6 +74,21 @@ export function useSocket() {
       qc.invalidateQueries({ queryKey: ['projects', payload.teamId] });
     });
 
+    // Project membership accepted — notify the accepted user in real time
+    socket.on('project.membership.accepted', (payload: {
+      projectId: string;
+      projectName?: string;
+      userId: string;
+    }) => {
+      qc.invalidateQueries({ queryKey: ['projects'] });
+      qc.invalidateQueries({ queryKey: ['project', payload.projectId] });
+      qc.invalidateQueries({ queryKey: ['project-members', payload.projectId] });
+      qc.invalidateQueries({ queryKey: ['project-teams', payload.projectId] });
+      qc.invalidateQueries({ queryKey: ['project-teams'] });
+      qc.invalidateQueries({ queryKey: ['project-join-requests', payload.projectId] });
+      qc.invalidateQueries({ queryKey: ['project-search'] });
+    });
+
     // Team events
     socket.on('team.updated', (payload: { teamId: string }) => {
       qc.invalidateQueries({ queryKey: ['team', payload.teamId] });
@@ -132,6 +147,22 @@ export function useSocket() {
         qc.invalidateQueries({ queryKey: ['project-teams'] });
         qc.invalidateQueries({ queryKey: ['projects'] });
       }
+    });
+
+    // Team membership accepted — notify the accepted user in real time
+    socket.on('team.membership.accepted', (payload: {
+      teamId: string;
+      projectId: string;
+      teamName?: string;
+      userId: string;
+    }) => {
+      qc.invalidateQueries({ queryKey: ['teams'] });
+      qc.invalidateQueries({ queryKey: ['team', payload.teamId] });
+      qc.invalidateQueries({ queryKey: ['team-members', payload.teamId] });
+      qc.invalidateQueries({ queryKey: ['project-teams', payload.projectId] });
+      qc.invalidateQueries({ queryKey: ['project-teams'] });
+      qc.invalidateQueries({ queryKey: ['join-requests', payload.teamId] });
+      qc.invalidateQueries({ queryKey: ['team-search'] });
     });
 
     // Team deleted — remove from cache immediately; redirect if currently viewing it
@@ -193,12 +224,14 @@ export function useSocket() {
       socket.off('project.created');
       socket.off('project.updated');
       socket.off('project.deleted');
+      socket.off('project.membership.accepted');
       socket.off('team.updated');
       socket.off('team.member_added');
       socket.off('team.ownership_transferred');
       socket.off('team.member_removed');
       socket.off('team.join_request_created');
       socket.off('team.join_request_updated');
+      socket.off('team.membership.accepted');
       socket.off('team.deleted');
       socket.off('message.created');
       socket.off('notification.received');

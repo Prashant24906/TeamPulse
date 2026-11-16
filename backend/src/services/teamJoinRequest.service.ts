@@ -154,6 +154,13 @@ export async function updateJoinRequest(
       status: 'APPROVED',
     });
 
+    emitToUser(userId, WS_EVENTS.TEAM_MEMBERSHIP_ACCEPTED, {
+      teamId,
+      projectId: team.project_id,
+      teamName: team.name,
+      userId,
+    });
+
     return request;
   } else {
     // Rejection: simple status update, no team_members change

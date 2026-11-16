@@ -14,11 +14,13 @@ export const WS_EVENTS = {
   TEAM_OWNERSHIP_TRANSFERRED: 'team.ownership_transferred',
   TEAM_JOIN_REQUEST_CREATED:  'team.join_request_created',
   TEAM_JOIN_REQUEST_UPDATED:  'team.join_request_updated',
+  TEAM_MEMBERSHIP_ACCEPTED:   'team.membership.accepted',
 
   // Project events
-  PROJECT_CREATED: 'project.created',
-  PROJECT_UPDATED: 'project.updated',
-  PROJECT_DELETED: 'project.deleted',
+  PROJECT_CREATED:             'project.created',
+  PROJECT_UPDATED:             'project.updated',
+  PROJECT_DELETED:             'project.deleted',
+  PROJECT_MEMBERSHIP_ACCEPTED: 'project.membership.accepted',
 
   // Task events
   TASK_CREATED:  'task.created',
@@ -52,6 +54,17 @@ export interface TeamOwnershipTransferredPayload {
 }
 export interface JoinRequestPayload        { teamId: string; requestId: string; userId: string }
 export interface JoinRequestUpdatedPayload { teamId: string; requestId: string; userId: string; status: 'APPROVED' | 'REJECTED' }
+export interface ProjectMembershipAcceptedPayload {
+  projectId:    string;
+  projectName?: string;
+  userId:       string;
+}
+export interface TeamMembershipAcceptedPayload {
+  teamId:    string;
+  projectId: string;
+  teamName?: string;
+  userId:    string;
+}
 
 export interface ProjectPayload          { teamId: string; projectId: string; [key: string]: unknown }
 export interface TaskPayload             { teamId: string; projectId: string; taskId: string; [key: string]: unknown }

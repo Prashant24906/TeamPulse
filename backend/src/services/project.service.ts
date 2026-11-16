@@ -4,7 +4,7 @@ import * as teamRepo    from '../repositories/team.repository';
 import type { ProjectRole } from '../repositories/project.repository';
 import type { CreateProjectInput, UpdateProjectInput } from '../validators/project.validator';
 import { cacheGet, cacheSet, cacheInvalidate, CacheKeys } from '../utils/cache';
-import { emitToTeam } from '../websocket/emit';
+import { emitToTeam, emitToUser } from '../websocket/emit';
 import { WS_EVENTS } from '../websocket/events';
 import { evictUserFromTeamRooms } from '../websocket/rooms';
 import * as notificationService from './notification.service';
@@ -295,6 +295,13 @@ export async function resolveJoinRequest(
   if (status === 'APPROVED') {
     // Add the user as a MEMBER of the project
     await projectRepo.addMember(projectId, req.user_id, 'MEMBER');
+
+    const project = await projectRepo.findProjectById(projectId);
+    emitToUser(req.user_id, WS_EVENTS.PROJECT_MEMBERSHIP_ACCEPTED, {
+      projectId,
+      projectName: project?.name,
+      userId: req.user_id,
+    });
   }
 
   return updated;
