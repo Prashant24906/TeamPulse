@@ -44,7 +44,7 @@ function NotificationItem({
 }) {
   const isOverdue    = notification.type === 'TASK_OVERDUE';
   const isAssigned   = notification.type === 'TASK_ASSIGNED';
-  const isMessage    = notification.type === 'TEAM_MESSAGE';
+  const isMessage    = notification.type === 'TEAM_MESSAGE' || notification.type === 'PROJECT_MESSAGE';
   const isProjectJoin= notification.type === 'PROJECT_JOIN_REQUEST';
   const isTeamJoin   = notification.type === 'TEAM_JOIN_REQUEST';
 
@@ -70,6 +70,13 @@ function NotificationItem({
             ? 'text-red-500'
             : 'text-amber-500';
 
+  const conversationTitle = notification.conversation_name ||
+    (notification.type === 'PROJECT_MESSAGE' ? 'Project Chat' : 'Team Chat');
+
+  const previewText = notification.latest_sender_name && notification.latest_message_preview
+    ? `"${notification.latest_sender_name}: ${notification.latest_message_preview}"`
+    : notification.message;
+
   return (
     <button
       type="button"
@@ -82,10 +89,34 @@ function NotificationItem({
         {icon}
       </span>
       <div className="flex-1 min-w-0">
-        <p className={`text-xs leading-snug ${notification.is_read ? 'text-gray-500' : 'text-gray-800 font-medium'}`}>
-          {notification.message}
-        </p>
-        <p className="text-[11px] text-gray-400 mt-0.5">{timeAgo(notification.created_at)}</p>
+        {isMessage ? (
+          <>
+            <p className="text-xs font-semibold text-gray-900 truncate">
+              {conversationTitle}
+            </p>
+            <p className="text-xs text-gray-600 truncate mt-0.5">
+              {previewText}
+            </p>
+            <p className="text-[11px] text-gray-400 mt-1 flex items-center gap-1.5">
+              {notification.unread_message_count && notification.unread_message_count > 0 ? (
+                <span className="font-semibold text-emerald-600">
+                  {notification.unread_message_count} new {notification.unread_message_count === 1 ? 'message' : 'messages'}
+                </span>
+              ) : null}
+              {notification.unread_message_count && notification.unread_message_count > 0 ? (
+                <span>·</span>
+              ) : null}
+              <span>{timeAgo(notification.created_at)}</span>
+            </p>
+          </>
+        ) : (
+          <>
+            <p className={`text-xs leading-snug ${notification.is_read ? 'text-gray-500' : 'text-gray-800 font-medium'}`}>
+              {notification.message}
+            </p>
+            <p className="text-[11px] text-gray-400 mt-0.5">{timeAgo(notification.created_at)}</p>
+          </>
+        )}
       </div>
       {!notification.is_read && (
         <span className="mt-1.5 flex-shrink-0 h-2 w-2 rounded-full bg-emerald-500" />
@@ -109,7 +140,11 @@ export default function NotificationBell({ align = 'left' }: NotificationBellPro
       markRead.mutate(notification.id);
     }
     setOpen(false);
-    if (notification.type === 'PROJECT_JOIN_REQUEST' && notification.project_id) {
+    if (notification.type === 'PROJECT_MESSAGE' && notification.project_id) {
+      router.push(`/projects/${notification.project_id}?tab=chat`);
+    } else if (notification.type === 'TEAM_MESSAGE' && notification.project_id && notification.team_id) {
+      router.push(`/projects/${notification.project_id}/teams/${notification.team_id}?tab=chat`);
+    } else if (notification.type === 'PROJECT_JOIN_REQUEST' && notification.project_id) {
       router.push(`/projects/${notification.project_id}?tab=requests`);
     } else if (notification.type === 'TEAM_JOIN_REQUEST' && notification.project_id && notification.team_id) {
       router.push(`/projects/${notification.project_id}/teams/${notification.team_id}?tab=requests`);

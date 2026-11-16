@@ -32,10 +32,17 @@ export interface Notification {
   join_request_id?: string | null;
   type: NotificationType;
   message: string;
-  job_id: string;
+  job_id: string | null;
   is_read: boolean;
   created_at: Date;
   transient?: boolean;
+  conversation_type?: 'TEAM' | 'PROJECT' | null;
+  conversation_id?: string | null;
+  conversation_name?: string | null;
+  unread_message_count?: number;
+  latest_sender_id?: string | null;
+  latest_sender_name?: string | null;
+  latest_message_preview?: string | null;
 }
 
 /**
@@ -63,6 +70,83 @@ export async function persistNotification(
 
   // Returns null if skipped (duplicate) — caller can log accordingly
   return rows[0] ?? null;
+}
+
+export interface UpsertGroupedChatInput {
+  userId: string;
+  conversationType: 'TEAM' | 'PROJECT';
+  conversationId: string;
+  conversationName: string;
+  type: 'TEAM_MESSAGE' | 'PROJECT_MESSAGE';
+  senderId: string;
+  senderName: string;
+  preview: string;
+  teamId?: string | null;
+  projectId?: string | null;
+  messageId?: string | null;
+}
+
+/**
+ * Atomically create or update a persistent grouped chat notification.
+ * Guarantees at most ONE unread notification per user per conversation
+ * using the partial unique index on (user_id, conversation_type, conversation_id) WHERE is_read = FALSE.
+ */
+export async function upsertGroupedChatNotification(
+  input: UpsertGroupedChatInput
+): Promise<Notification> {
+  const initialMessage = input.preview
+    ? `${input.senderName} sent a message in ${input.conversationName}: "${input.preview}"`
+    : `${input.senderName} sent a message in ${input.conversationName}.`;
+
+  const rows = await sql<Notification[]>`
+    INSERT INTO notifications (
+      user_id,
+      type,
+      message,
+      conversation_type,
+      conversation_id,
+      conversation_name,
+      unread_message_count,
+      latest_sender_id,
+      latest_sender_name,
+      latest_message_preview,
+      team_id,
+      project_id,
+      message_id,
+      is_read,
+      created_at
+    )
+    VALUES (
+      ${input.userId},
+      ${input.type},
+      ${initialMessage},
+      ${input.conversationType},
+      ${input.conversationId},
+      ${input.conversationName},
+      1,
+      ${input.senderId},
+      ${input.senderName},
+      ${input.preview},
+      ${input.teamId ?? null},
+      ${input.projectId ?? null},
+      ${input.messageId ?? null},
+      FALSE,
+      NOW()
+    )
+    ON CONFLICT (user_id, conversation_type, conversation_id) WHERE is_read = FALSE
+    DO UPDATE SET
+      unread_message_count = notifications.unread_message_count + 1,
+      message = EXCLUDED.latest_sender_name || ' and others sent ' || (notifications.unread_message_count + 1) || ' messages in ' || EXCLUDED.conversation_name || '.',
+      latest_sender_id = EXCLUDED.latest_sender_id,
+      latest_sender_name = EXCLUDED.latest_sender_name,
+      latest_message_preview = EXCLUDED.latest_message_preview,
+      conversation_name = EXCLUDED.conversation_name,
+      message_id = EXCLUDED.message_id,
+      created_at = NOW()
+    RETURNING *
+  `;
+
+  return rows[0];
 }
 
 // ---------------------------------------------------------------------------
@@ -190,6 +274,7 @@ export async function notifyTeamMessage(
   try {
     for (const recipient of recipients) {
       try {
+        // A. Real-time transient toast notification (Instagram-style toast)
         const transientNotification = {
           id: `transient_msg_${messageId}_${recipient.user_id}`,
           user_id: recipient.user_id,
@@ -205,6 +290,11 @@ export async function notifyTeamMessage(
           is_read: false,
           created_at: new Date().toISOString(),
           transient: true,
+          conversation_type: 'TEAM' as const,
+          conversation_id: teamId,
+          conversation_name: teamName,
+          latest_sender_name: senderName,
+          latest_message_preview: preview,
         };
 
         if (publisher) {
@@ -218,14 +308,57 @@ export async function notifyTeamMessage(
             );
           } catch (pubErr) {
             console.error(
-              `[notification] Redis publish failed for recipient ${recipient.user_id} (non-fatal):`,
+              `[notification] Redis publish failed for recipient toast ${recipient.user_id} (non-fatal):`,
+              (pubErr as Error).message
+            );
+          }
+        }
+
+        // B. Create or update persistent grouped notification in DB
+        let groupedNotification: Notification | null = null;
+        try {
+          groupedNotification = await upsertGroupedChatNotification({
+            userId: recipient.user_id,
+            conversationType: 'TEAM',
+            conversationId: teamId,
+            conversationName: teamName,
+            type: 'TEAM_MESSAGE',
+            senderId,
+            senderName,
+            preview,
+            teamId,
+            projectId: resolvedProjectId,
+            messageId,
+          });
+        } catch (dbErr) {
+          console.error(`[notification] Failed to persist grouped TEAM_MESSAGE for ${recipient.user_id}:`, (dbErr as Error).message);
+        }
+
+        // C. Publish persistent grouped notification over Redis to update the bell & badge
+        if (publisher && groupedNotification) {
+          try {
+            await publisher.publish(
+              NOTIFICATION_CHANNEL,
+              JSON.stringify({
+                userId: recipient.user_id,
+                notification: {
+                  ...groupedNotification,
+                  team_id: teamId,
+                  project_id: resolvedProjectId,
+                  transient: false,
+                },
+              })
+            );
+          } catch (pubErr) {
+            console.error(
+              `[notification] Redis publish failed for persistent TEAM_MESSAGE to ${recipient.user_id} (non-fatal):`,
               (pubErr as Error).message
             );
           }
         }
       } catch (recipErr) {
         console.error(
-          `[notification] Failed to deliver transient TEAM_MESSAGE for recipient ${recipient.user_id} (non-fatal):`,
+          `[notification] Failed to deliver TEAM_MESSAGE for recipient ${recipient.user_id} (non-fatal):`,
           (recipErr as Error).message
         );
       }
@@ -242,16 +375,12 @@ export async function notifyTeamMessage(
 }
 
 // ---------------------------------------------------------------------------
-// PROJECT_MESSAGE — transient real-time toast to all other project members
-//
-// Transient: does NOT insert into PostgreSQL, does NOT increase unread count,
-// does NOT appear in the notification bell dropdown. Publishes to Redis with
-// `transient: true` so the frontend displays an Instagram-style toast only.
+// PROJECT_MESSAGE — persistent grouped notification + transient real-time toast
 // ---------------------------------------------------------------------------
 
 /**
  * Notify all project members (except the sender) that a message was posted.
- * Transient only: delivers real-time toast without PostgreSQL persistence.
+ * Grouped in PostgreSQL (at most one unread notification per project) and triggers a toast.
  *
  * @param messageId   ID of the posted project message
  * @param projectId   ID of the project
@@ -271,6 +400,7 @@ export async function notifyProjectMessage(
   if (!project) return;
 
   const projectName = project.name;
+  const conversationName = `${projectName} Project Chat`;
 
   // 2. Resolve recipients from project_members table — strictly excluding sender
   const members = await projectRepo.findMembersByProject(projectId);
@@ -297,6 +427,7 @@ export async function notifyProjectMessage(
   try {
     for (const recipient of recipients) {
       try {
+        // A. Real-time transient toast notification
         const transientNotification = {
           id: `transient_projmsg_${messageId}_${recipient.user_id}`,
           user_id: recipient.user_id,
@@ -312,6 +443,11 @@ export async function notifyProjectMessage(
           is_read: false,
           created_at: new Date().toISOString(),
           transient: true,
+          conversation_type: 'PROJECT' as const,
+          conversation_id: projectId,
+          conversation_name: conversationName,
+          latest_sender_name: senderName,
+          latest_message_preview: preview,
         };
 
         if (publisher) {
@@ -325,14 +461,56 @@ export async function notifyProjectMessage(
             );
           } catch (pubErr) {
             console.error(
-              `[notification] Redis publish failed for project message recipient ${recipient.user_id} (non-fatal):`,
+              `[notification] Redis publish failed for project message toast ${recipient.user_id} (non-fatal):`,
+              (pubErr as Error).message
+            );
+          }
+        }
+
+        // B. Create or update persistent grouped notification in DB
+        let groupedNotification: Notification | null = null;
+        try {
+          groupedNotification = await upsertGroupedChatNotification({
+            userId: recipient.user_id,
+            conversationType: 'PROJECT',
+            conversationId: projectId,
+            conversationName: conversationName,
+            type: 'PROJECT_MESSAGE',
+            senderId,
+            senderName,
+            preview,
+            teamId: null,
+            projectId,
+            messageId: null,
+          });
+        } catch (dbErr) {
+          console.error(`[notification] Failed to persist grouped PROJECT_MESSAGE for ${recipient.user_id}:`, (dbErr as Error).message);
+        }
+
+        // C. Publish persistent grouped notification over Redis
+        if (publisher && groupedNotification) {
+          try {
+            await publisher.publish(
+              NOTIFICATION_CHANNEL,
+              JSON.stringify({
+                userId: recipient.user_id,
+                notification: {
+                  ...groupedNotification,
+                  project_id: projectId,
+                  transient: false,
+                },
+              })
+            );
+          } catch (pubErr) {
+            console.error(
+              `[notification] Redis publish failed for project message persistent notif ${recipient.user_id} (non-fatal):`,
               (pubErr as Error).message
             );
           }
         }
       } catch (recipErr) {
         console.error(
-          `[notification] Failed to deliver transient PROJECT_MESSAGE for recipient ${recipient.user_id} (non-fatal):`,
+          `[notification] Failed to deliver PROJECT_MESSAGE for recipient ${recipient.user_id} (non-fatal):`,
           (recipErr as Error).message
         );
       }
@@ -616,6 +794,13 @@ export async function getNotificationsByUser(
       n.job_id, 
       n.is_read, 
       n.created_at,
+      n.conversation_type,
+      n.conversation_id,
+      n.conversation_name,
+      n.unread_message_count,
+      n.latest_sender_id,
+      n.latest_sender_name,
+      n.latest_message_preview,
       COALESCE(n.team_id, t.team_id) AS team_id,
       COALESCE(n.project_id, tm.project_id, direct_team.project_id) AS project_id
     FROM notifications n
@@ -651,9 +836,11 @@ export async function markNotificationAsRead(
   const rows = await sql<Notification[]>`
     WITH updated AS (
       UPDATE notifications
-      SET is_read = TRUE
+      SET is_read = TRUE,
+          unread_message_count = 0
       WHERE id = ${notificationId} AND user_id = ${userId}
-      RETURNING id, user_id, task_id, team_id, message_id, project_id, join_request_id, type, message, job_id, is_read, created_at
+      RETURNING id, user_id, task_id, team_id, message_id, project_id, join_request_id, type, message, job_id, is_read, created_at,
+                conversation_type, conversation_id, conversation_name, unread_message_count, latest_sender_id, latest_sender_name, latest_message_preview
     )
     SELECT 
       u.id, 
@@ -666,6 +853,13 @@ export async function markNotificationAsRead(
       u.created_at,
       u.message_id,
       u.join_request_id,
+      u.conversation_type,
+      u.conversation_id,
+      u.conversation_name,
+      u.unread_message_count,
+      u.latest_sender_id,
+      u.latest_sender_name,
+      u.latest_message_preview,
       COALESCE(u.team_id, t.team_id) AS team_id,
       COALESCE(u.project_id, tm.project_id, direct_team.project_id) AS project_id
     FROM updated u
@@ -684,8 +878,34 @@ export async function markAllNotificationsAsRead(userId: string): Promise<number
   const rows = await sql<{ count: string }[]>`
     WITH updated AS (
       UPDATE notifications
-      SET is_read = TRUE
+      SET is_read = TRUE,
+          unread_message_count = 0
       WHERE user_id = ${userId} AND is_read = FALSE
+      RETURNING id
+    )
+    SELECT COUNT(*)::text AS count FROM updated
+  `;
+  return parseInt(rows[0]?.count ?? '0', 10);
+}
+
+/**
+ * Mark all unread notifications for a specific conversation (TEAM or PROJECT) as read.
+ * Resets unread_message_count to 0.
+ */
+export async function markConversationNotificationsAsRead(
+  userId: string,
+  conversationType: 'TEAM' | 'PROJECT',
+  conversationId: string
+): Promise<number> {
+  const rows = await sql<{ count: string }[]>`
+    WITH updated AS (
+      UPDATE notifications
+      SET is_read = TRUE,
+          unread_message_count = 0
+      WHERE user_id = ${userId}
+        AND conversation_type = ${conversationType}
+        AND conversation_id = ${conversationId}
+        AND is_read = FALSE
       RETURNING id
     )
     SELECT COUNT(*)::text AS count FROM updated

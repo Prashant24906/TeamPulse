@@ -9,6 +9,7 @@ import {
   useDeleteProjectMessage,
 } from '@/hooks/useProjectMessages';
 import { useAuth } from '@/hooks/useAuth';
+import { useMarkConversationRead } from '@/hooks/useNotifications';
 import api from '@/lib/api';
 import type { ProjectMessage } from '@/types/message';
 
@@ -23,7 +24,14 @@ export function ProjectChatPanel({ projectId, projectName, memberCount }: Props)
   const sendMessage = useSendProjectMessage(projectId);
   const updateMessage = useUpdateProjectMessage(projectId);
   const deleteMessage = useDeleteProjectMessage(projectId);
+  const markConversationRead = useMarkConversationRead();
   const { data: me } = useAuth();
+
+  useEffect(() => {
+    if (projectId) {
+      markConversationRead.mutate({ conversationType: 'PROJECT', conversationId: projectId });
+    }
+  }, [projectId]);
 
   // Local state for pagination and prepend
   const [messages, setMessages] = useState<ProjectMessage[]>([]);

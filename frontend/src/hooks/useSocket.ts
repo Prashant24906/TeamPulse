@@ -287,12 +287,18 @@ export function useSocket() {
 
     // Notification events — invalidate cache so the bell and dropdown refresh
     const onNotificationReceived = (payload?: Notification) => {
-      // Transient notifications (e.g. team chat messages) must NOT invalidate the persistent notification cache
+      // Invalidate the persistent notifications cache for non-transient notifications
       if (!payload?.transient) {
         qc.invalidateQueries({ queryKey: ['notifications'] });
       }
-      // Broadcast to window so any component (e.g. NotificationToast) receives it reliably
-      if (typeof window !== 'undefined' && payload) {
+
+      // For chat messages, ONLY transient payloads (Instagram-style toasts for every single message) trigger the toast component.
+      // Persistent grouped updates update the bell without popping duplicate toasts.
+      const isPersistentChatGroup =
+        !payload?.transient &&
+        (payload?.type === 'TEAM_MESSAGE' || payload?.type === 'PROJECT_MESSAGE');
+
+      if (typeof window !== 'undefined' && payload && !isPersistentChatGroup) {
         window.dispatchEvent(new CustomEvent('teamflow:notification', { detail: payload }));
       }
     };

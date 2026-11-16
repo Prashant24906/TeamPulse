@@ -5,6 +5,7 @@ import {
   getUnreadNotificationCount,
   markNotificationAsRead,
   markAllNotificationsAsRead,
+  markConversationNotificationsAsRead,
 } from '../services/notification.service';
 
 // ---------------------------------------------------------------------------
@@ -98,6 +99,35 @@ export async function markAllAsRead(
   try {
     const userId = (req as AuthRequest).user.userId;
     const count  = await markAllNotificationsAsRead(userId);
+    res.json({ status: 'success', data: { updated: count } });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * PATCH /api/notifications/conversations/:conversationType/:conversationId/read
+ */
+export async function markConversationRead(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const userId = (req as AuthRequest).user.userId;
+    const conversationType = req.params.conversationType as string;
+    const conversationId = req.params.conversationId as string;
+
+    if (!conversationType || !conversationId) {
+      throw new AppError(400, 'Conversation type and ID are required');
+    }
+
+    const upperType = conversationType.toUpperCase();
+    if (upperType !== 'TEAM' && upperType !== 'PROJECT') {
+      throw new AppError(400, 'Invalid conversation type. Must be TEAM or PROJECT');
+    }
+
+    const count = await markConversationNotificationsAsRead(userId, upperType, conversationId);
     res.json({ status: 'success', data: { updated: count } });
   } catch (err) {
     next(err);

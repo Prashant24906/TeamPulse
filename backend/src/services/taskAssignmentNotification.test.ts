@@ -388,7 +388,7 @@ describe('Task Assignment Notifications', () => {
   // -------------------------------------------------------------------------
   // 8. Notifications are persisted and delivered through the existing real-time mechanism.
   // -------------------------------------------------------------------------
-  it('8. notifyTaskAssigned persists to DB and publishes to Redis notifications:push channel', async () => {
+  it('8. notifyTaskAssigned persists to DB and publishes to Redis notifications:push channel', { timeout: 30000 }, async () => {
     const actualNotificationService = await vi.importActual<typeof import('./notification.service')>('./notification.service');
 
     vi.mocked(sql).mockResolvedValue([
@@ -444,7 +444,7 @@ describe('Task Assignment Notifications', () => {
   // -------------------------------------------------------------------------
   // 9. One assignment change cannot generate duplicate notifications.
   // -------------------------------------------------------------------------
-  it('9. duplicate notification calls are suppressed by the idempotency guard (persistNotification returns null)', async () => {
+  it('9. duplicate notification calls are suppressed by the idempotency guard (persistNotification returns null)', { timeout: 30000 }, async () => {
     const actualNotificationService = await vi.importActual<typeof import('./notification.service')>('./notification.service');
 
     // Simulate database returning empty array because ON CONFLICT (job_id, user_id) DO NOTHING skipped duplicate

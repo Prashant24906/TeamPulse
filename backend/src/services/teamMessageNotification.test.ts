@@ -172,17 +172,21 @@ describe('Team Message Notifications (Transient Only)', () => {
   });
 
   // -------------------------------------------------------------------------
-  // 2. Team chat messages do NOT insert into PostgreSQL notifications table
+  // 2. Team chat messages upsert a persistent grouped notification in PostgreSQL
   // -------------------------------------------------------------------------
-  it('2. Team chat messages do NOT insert records into PostgreSQL notifications table', async () => {
+  it('2. Team chat messages upsert a persistent grouped notification record in PostgreSQL notifications table', async () => {
     await messageService.sendMessage(senderId, teamId, { content: mockMessage.content }, projectId);
 
-    // Verify that sql was NEVER called with an INSERT INTO notifications statement
+    // Verify that sql was called with an INSERT INTO notifications statement containing ON CONFLICT for grouping
     const sqlCalls = (sql as any).mock.calls;
-    for (const call of sqlCalls) {
+    const hasGroupedInsert = sqlCalls.some((call: any) => {
       const queryText = (call[0] as string[])?.join?.('') ?? '';
-      expect(queryText).not.toContain('INSERT INTO notifications');
-    }
+      return (
+        queryText.includes('INSERT INTO notifications') &&
+        queryText.includes('ON CONFLICT (user_id, conversation_type, conversation_id) WHERE is_read = FALSE')
+      );
+    });
+    expect(hasGroupedInsert).toBe(true);
   });
 
   // -------------------------------------------------------------------------

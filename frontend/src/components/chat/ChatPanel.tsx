@@ -1,7 +1,9 @@
 'use client';
 
+import { useEffect } from 'react';
 import { AlertCircle } from 'lucide-react';
 import { useMessages } from '@/hooks/useMessages';
+import { useMarkConversationRead } from '@/hooks/useNotifications';
 import { MessageList }  from './MessageList';
 import { MessageInput } from './MessageInput';
 
@@ -11,6 +13,13 @@ interface Props {
 
 export function ChatPanel({ teamId }: Props) {
   const { data: messages = [], isLoading, isError, refetch } = useMessages(teamId);
+  const markConversationRead = useMarkConversationRead();
+
+  useEffect(() => {
+    if (teamId) {
+      markConversationRead.mutate({ conversationType: 'TEAM', conversationId: teamId });
+    }
+  }, [teamId]);
 
   if (isError) {
     return (

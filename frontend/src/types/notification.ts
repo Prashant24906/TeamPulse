@@ -23,8 +23,15 @@ export interface Notification {
   join_request_id?: string | null;
   type: NotificationType;
   message: string;
-  job_id: string;
+  job_id?: string | null;
   is_read: boolean;
   created_at: string;
   transient?: boolean;
+  conversation_type?: 'TEAM' | 'PROJECT' | null;
+  conversation_id?: string | null;
+  conversation_name?: string | null;
+  unread_message_count?: number;
+  latest_sender_id?: string | null;
+  latest_sender_name?: string | null;
+  latest_message_preview?: string | null;
 }

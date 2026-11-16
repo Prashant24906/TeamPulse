@@ -222,16 +222,17 @@ describe('Project Message Service', () => {
   });
 
   // -------------------------------------------------------------------------
-  // 10. Notifications are transient (not persisted in DB)
+  // 10. Persistent grouped notification in PostgreSQL
   // -------------------------------------------------------------------------
-  it('10. Project chat messages do NOT insert into PostgreSQL notifications table', async () => {
+  it('10. Project chat messages insert a grouped notification into PostgreSQL', async () => {
     await notificationService.notifyProjectMessage(messageId, projectId, senderId, 'Alex', 'Hello!');
 
     const sqlCalls = (sql as any).mock.calls;
-    for (const call of sqlCalls) {
+    const hasGroupedInsert = sqlCalls.some((call: any) => {
       const queryText = (call[0] as string[])?.join?.('') ?? '';
-      expect(queryText).not.toContain('INSERT INTO notifications');
-    }
+      return queryText.includes('INSERT INTO notifications') && queryText.includes('conversation_type');
+    });
+    expect(hasGroupedInsert).toBe(true);
   });
 
   // -------------------------------------------------------------------------
@@ -240,10 +241,13 @@ describe('Project Message Service', () => {
   it('11. Sending publishes transient toast to other project members', async () => {
     await notificationService.notifyProjectMessage(messageId, projectId, senderId, 'Alex', 'Hello!');
 
-    expect(mockPublish).toHaveBeenCalledTimes(2); // member1 and member2
-    const recipients = mockPublish.mock.calls.map((c) => JSON.parse(c[1]).userId);
-    expect(recipients).toContain(member1Id);
-    expect(recipients).toContain(member2Id);
+    expect(mockPublish).toHaveBeenCalled();
+    const calls = mockPublish.mock.calls.map((c) => JSON.parse(c[1]));
+    const toastRecipients = calls
+      .filter((c) => c.notification.transient === true)
+      .map((c) => c.userId);
+    expect(toastRecipients).toContain(member1Id);
+    expect(toastRecipients).toContain(member2Id);
   });
 
   // -------------------------------------------------------------------------
@@ -257,15 +261,16 @@ describe('Project Message Service', () => {
   });
 
   // -------------------------------------------------------------------------
-  // 13. Notification payload is marked transient
+  // 13. Notification payload includes transient toast for real-time display
   // -------------------------------------------------------------------------
-  it('13. Project message notification is marked transient: true', async () => {
+  it('13. Project message notification includes transient toast for real-time display', async () => {
     await notificationService.notifyProjectMessage(messageId, projectId, senderId, 'Alex', 'Hello!');
 
-    const payload = JSON.parse(mockPublish.mock.calls[0][1]);
-    expect(payload.notification.transient).toBe(true);
-    expect(payload.notification.type).toBe('PROJECT_MESSAGE');
-    expect(payload.notification.project_id).toBe(projectId);
+    const calls = mockPublish.mock.calls.map((c) => JSON.parse(c[1]));
+    const toastPayload = calls.find((c) => c.notification.transient === true);
+    expect(toastPayload).toBeDefined();
+    expect(toastPayload.notification.type).toBe('PROJECT_MESSAGE');
+    expect(toastPayload.notification.project_id).toBe(projectId);
   });
 
   // -------------------------------------------------------------------------

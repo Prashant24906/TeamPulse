@@ -53,6 +53,28 @@ export function useMarkNotificationRead() {
   });
 }
 
+/** Mark all unread notifications for a conversation as read */
+export function useMarkConversationRead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      conversationType,
+      conversationId,
+    }: {
+      conversationType: 'TEAM' | 'PROJECT';
+      conversationId: string;
+    }) => {
+      const res = await api.patch<{ status: string; data: { updated: number } }>(
+        `/notifications/conversations/${conversationType}/${conversationId}/read`
+      );
+      return res.data.data.updated;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['notifications'] });
+    },
+  });
+}
+
 /** Mark all notifications as read */
 export function useMarkAllNotificationsRead() {
   const qc = useQueryClient();

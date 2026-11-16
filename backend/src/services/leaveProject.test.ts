@@ -42,6 +42,7 @@ vi.mock('../websocket/emit', () => ({
 }));
 
 vi.mock('../websocket/rooms', () => ({
+  evictUserFromTeamRoom: vi.fn().mockResolvedValue(undefined),
   evictUserFromTeamRooms: vi.fn().mockResolvedValue(undefined),
   evictUserFromProjectRoom: vi.fn().mockResolvedValue(undefined),
 }));
@@ -56,6 +57,7 @@ import { emitToUser, emitToTeam } from '../websocket/emit';
 import { evictUserFromTeamRooms } from '../websocket/rooms';
 import { WS_EVENTS } from '../websocket/events';
 import * as projectService from './project.service';
+import { removeProjectMember, leaveProject as leaveProjectCtrl } from '../controllers/project.controller';
 
 describe('Leave Project Functionality', () => {
   const projectId = 'proj-123';
@@ -238,7 +240,6 @@ describe('Leave Project Functionality', () => {
 
   describe('Controller Layer Integration', () => {
     it('removeProjectMember calls leaveProject when callerId === targetUserId', async () => {
-      const { removeProjectMember } = await import('../controllers/project.controller');
       const req: any = {
         user: { userId: memberId },
         params: { projectId, userId: memberId },
@@ -260,7 +261,6 @@ describe('Leave Project Functionality', () => {
     });
 
     it('leaveProject controller delegates to leaveProject service and returns 204', async () => {
-      const { leaveProject: leaveProjectCtrl } = await import('../controllers/project.controller');
       const req: any = {
         user: { userId: adminId },
         params: { projectId },
@@ -282,7 +282,6 @@ describe('Leave Project Functionality', () => {
     });
 
     it('leaveProject controller forwards error to next() when OWNER attempts to leave', async () => {
-      const { leaveProject: leaveProjectCtrl } = await import('../controllers/project.controller');
       const req: any = {
         user: { userId: ownerId },
         params: { projectId },
