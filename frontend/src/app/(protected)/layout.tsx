@@ -207,7 +207,7 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
       )}
 
       {/* ── Main Content Area ───────────────────────────────────── */}
-      <main className="flex-1 h-full min-h-0 flex flex-col overflow-y-auto bg-gray-100 pb-20 md:pb-0">
+      <main className="flex-1 overflow-y-auto bg-gray-100 pb-20 md:pb-0">
         {children}
       </main>
 
