@@ -11,7 +11,7 @@ import type { Notification } from '@/types/notification';
 // Constants & Types
 // ---------------------------------------------------------------------------
 
-const TOAST_DURATION_MS = 2000;    // Visible for ~2 seconds
+const TOAST_DURATION_MS = 3000;    // Visible for ~3 seconds
 const EXIT_ANIMATION_MS = 300;     // Animation duration for smooth exit
 const MAX_VISIBLE_TOASTS = 3;      // Max 3 toasts simultaneously
 
