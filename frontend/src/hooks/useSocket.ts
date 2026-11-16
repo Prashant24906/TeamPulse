@@ -74,6 +74,30 @@ export function useSocket() {
       qc.invalidateQueries({ queryKey: ['projects', payload.teamId] });
     });
 
+    // Project member removed or self-left — refresh members, and if it's the current user, clean up and redirect
+    socket.on('project.member_removed', (payload: { projectId: string; userId: string }) => {
+      qc.invalidateQueries({ queryKey: ['project-members', payload.projectId] });
+
+      const me = qc.getQueryData<User>(['me']);
+      if (me && me.id === payload.userId) {
+        qc.setQueryData<any[]>(['projects'], (old: any) =>
+          old ? old.filter((p: any) => p.id !== payload.projectId) : old
+        );
+        qc.removeQueries({ queryKey: ['project', payload.projectId] });
+        qc.removeQueries({ queryKey: ['project-members', payload.projectId] });
+        qc.removeQueries({ queryKey: ['project-teams', payload.projectId] });
+        qc.removeQueries({ queryKey: ['project-resources', payload.projectId] });
+        qc.removeQueries({ queryKey: ['project-join-requests', payload.projectId] });
+        qc.invalidateQueries({ queryKey: ['projects'] });
+        qc.invalidateQueries({ queryKey: ['teams'] });
+        qc.invalidateQueries({ queryKey: ['project-teams'] });
+        qc.invalidateQueries({ queryKey: ['project-search'] });
+        if (pathname?.includes(`/projects/${payload.projectId}`)) {
+          router.replace('/projects');
+        }
+      }
+    });
+
     // Project membership accepted — notify the accepted user in real time
     socket.on('project.membership.accepted', (payload: {
       projectId: string;
@@ -224,6 +248,7 @@ export function useSocket() {
       socket.off('project.created');
       socket.off('project.updated');
       socket.off('project.deleted');
+      socket.off('project.member_removed');
       socket.off('project.membership.accepted');
       socket.off('team.updated');
       socket.off('team.member_added');

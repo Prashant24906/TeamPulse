@@ -92,18 +92,47 @@ export async function updateProjectMemberRole(
 
 // ---------------------------------------------------------------------------
 // DELETE /api/projects/:projectId/members/:userId
+// If callerId === userId → Leave project (self-removal for ADMIN / MEMBER)
+// If callerId !== userId → Kick member (OWNER only)
 // ---------------------------------------------------------------------------
 
-export async function kickProjectMember(
+export async function removeProjectMember(
   req: Request,
   res: Response,
   next: NextFunction
 ): Promise<void> {
   try {
-    await projectService.kickProjectMember(
+    const callerId = req.user!.userId;
+    const targetUserId = req.params.userId as string;
+    const projectId = req.params.projectId as string;
+
+    if (callerId === targetUserId) {
+      await projectService.leaveProject(callerId, projectId);
+    } else {
+      await projectService.kickProjectMember(callerId, projectId, targetUserId);
+    }
+    res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
+}
+
+export const kickProjectMember = removeProjectMember;
+
+// ---------------------------------------------------------------------------
+// POST /api/projects/:projectId/leave
+// DELETE /api/projects/:projectId/leave
+// ---------------------------------------------------------------------------
+
+export async function leaveProject(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    await projectService.leaveProject(
       req.user!.userId,
-      req.params.projectId as string,
-      req.params.userId as string
+      req.params.projectId as string
     );
     res.status(204).send();
   } catch (err) {

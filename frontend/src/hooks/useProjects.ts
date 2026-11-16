@@ -112,6 +112,35 @@ export function useDeleteProject() {
 }
 
 // ---------------------------------------------------------------------------
+// useLeaveProject — current user self-removes from a project.
+// Distinct from useKickProjectMember (which is an admin action on another member).
+// ---------------------------------------------------------------------------
+
+export function useLeaveProject(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (userId: string) => {
+      await api.delete(`/projects/${projectId}/members/${userId}`);
+    },
+    onSuccess: () => {
+      // Optimistically remove the project from the list so navigation is instant
+      qc.setQueryData<Project[]>(['projects'], (old) =>
+        old ? old.filter((p) => p.id !== projectId) : old
+      );
+      qc.removeQueries({ queryKey: ['project', projectId] });
+      qc.removeQueries({ queryKey: ['project-members', projectId] });
+      qc.removeQueries({ queryKey: ['project-teams', projectId] });
+      qc.removeQueries({ queryKey: ['project-resources', projectId] });
+      qc.removeQueries({ queryKey: ['project-join-requests', projectId] });
+      qc.invalidateQueries({ queryKey: ['projects'] });
+      qc.invalidateQueries({ queryKey: ['teams'] });
+      qc.invalidateQueries({ queryKey: ['project-teams'] });
+      qc.invalidateQueries({ queryKey: ['project-search'] });
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Teams nested under a project
 // ---------------------------------------------------------------------------
 

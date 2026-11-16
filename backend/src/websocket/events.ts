@@ -20,6 +20,7 @@ export const WS_EVENTS = {
   PROJECT_CREATED:             'project.created',
   PROJECT_UPDATED:             'project.updated',
   PROJECT_DELETED:             'project.deleted',
+  PROJECT_MEMBER_REMOVED:      'project.member_removed',
   PROJECT_MEMBERSHIP_ACCEPTED: 'project.membership.accepted',
 
   // Task events
@@ -66,6 +67,10 @@ export interface TeamMembershipAcceptedPayload {
   userId:    string;
 }
 
+export interface ProjectMemberRemovedPayload {
+  projectId: string;
+  userId:    string;
+}
 export interface ProjectPayload          { teamId: string; projectId: string; [key: string]: unknown }
 export interface TaskPayload             { teamId: string; projectId: string; taskId: string; [key: string]: unknown }
 

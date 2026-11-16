@@ -21,7 +21,9 @@ router.get('/search',       projectController.searchProjects);   // must be befo
 router.get('/:projectId',   projectController.getProject);
 router.get('/:projectId/members',           projectController.getProjectMembers);
 router.patch('/:projectId/members/:userId',  projectController.updateProjectMemberRole);
-router.delete('/:projectId/members/:userId', projectController.kickProjectMember);
+router.delete('/:projectId/members/:userId', projectController.removeProjectMember);
+router.post('/:projectId/leave',             projectController.leaveProject);
+router.delete('/:projectId/leave',           projectController.leaveProject);
 router.patch('/:projectId', projectController.updateProject);
 router.delete('/:projectId', projectController.deleteProject);
 

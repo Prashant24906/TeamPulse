@@ -6,12 +6,14 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import {
   useProject, useProjectTeams, useCreateTeam, useDeleteProject,
   useProjectMembers, useUpdateProjectMemberRole, useKickProjectMember,
+  useLeaveProject,
 } from '@/hooks/useProjects';
 import type { ProjectMember } from '@/hooks/useProjects';
+import { useAuth } from '@/hooks/useAuth';
 import { useProjectJoinRequests, useResolveProjectJoinRequest } from '@/hooks/useProjectDiscovery';
 import {
   ArrowLeft, Users, Plus, Trash2, ChevronRight, Loader2, AlertCircle, X,
-  FolderOpen, Bell, Check, XCircle, UserCircle, UserMinus, Link2,
+  FolderOpen, Bell, Check, XCircle, UserCircle, UserMinus, Link2, LogOut,
 } from 'lucide-react';
 import { ProjectResources } from '@/components/ProjectResources';
 import type { ProjectRole } from '@/types/project';
@@ -127,7 +129,9 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
 
   const { data: project, isLoading: projectLoading, isError: projectError } = useProject(projectId);
   const { data: teams,   isLoading: teamsLoading,   isError: teamsError }   = useProjectTeams(projectId);
+  const { data: currentUser } = useAuth();
   const deleteProject  = useDeleteProject();
+  const leaveProject   = useLeaveProject(projectId);
 
   // Derive role early so hook conditions can use it
   const isOwnerOrAdmin = project?.role === 'OWNER' || project?.role === 'ADMIN';
@@ -211,6 +215,49 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
               <Plus size={15} /> New Team
             </button>
           )}
+
+          {/* Leave Project — ADMIN and MEMBER can leave; OWNER must transfer ownership first */}
+          {isOwner ? (
+            <div className="relative group">
+              <button
+                id="leave-project-btn"
+                onClick={() => {
+                  alert('Ownership must first be transferred to another project member before you can leave.');
+                }}
+                className="flex items-center gap-1.5 text-xs sm:text-sm text-gray-400 hover:text-gray-600 border border-gray-200 px-3 py-2.5 rounded-xl transition cursor-not-allowed bg-gray-50 flex-shrink-0"
+                title="Ownership must first be transferred to another project member before you can leave."
+              >
+                <LogOut size={14} /> Leave Project
+              </button>
+              <div className="hidden group-hover:block absolute right-0 top-full mt-1.5 z-20 w-64 p-2.5 bg-gray-900 text-white text-xs rounded-xl shadow-lg pointer-events-none">
+                Ownership must first be transferred to another project member before you can leave.
+              </div>
+            </div>
+          ) : project?.role ? (
+            <button
+              id="leave-project-btn"
+              onClick={async () => {
+                if (
+                  !confirm(
+                    'Are you sure you want to leave this project? You will also lose access to all teams belonging to this project.'
+                  )
+                ) {
+                  return;
+                }
+                try {
+                  await leaveProject.mutateAsync(currentUser!.id);
+                  router.push('/projects');
+                } catch (err: any) {
+                  alert(err?.response?.data?.message || err?.message || 'Failed to leave project');
+                }
+              }}
+              disabled={leaveProject.isPending}
+              className="flex items-center gap-1.5 text-xs sm:text-sm text-gray-500 hover:text-red-600 border border-gray-200 hover:border-red-300 px-3 py-2.5 rounded-xl transition flex-shrink-0 disabled:opacity-50"
+            >
+              <LogOut size={14} /> {leaveProject.isPending ? 'Leaving…' : 'Leave Project'}
+            </button>
+          ) : null}
+
           {isOwner && (
             <button
               id="delete-project-btn"

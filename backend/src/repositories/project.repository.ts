@@ -1,4 +1,4 @@
-import sql from '../config/database';
+import sql, { withTransaction } from '../config/database';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -135,6 +135,32 @@ export async function removeMember(projectId: string, userId: string): Promise<v
     DELETE FROM project_members
      WHERE project_id = ${projectId} AND user_id = ${userId}
   `;
+}
+
+/**
+ * Atomically removes all team memberships belonging to this project for the user,
+ * and removes the project membership itself inside a single database transaction.
+ * Returns the IDs of the teams the user was removed from.
+ */
+export async function removeProjectMemberAtomic(
+  projectId: string,
+  userId: string
+): Promise<string[]> {
+  return withTransaction(async (tx) => {
+    const rows = await tx<{ team_id: string }[]>`
+      DELETE FROM team_members
+       WHERE user_id = ${userId}
+         AND team_id IN (
+           SELECT id FROM teams WHERE project_id = ${projectId}
+         )
+      RETURNING team_id
+    `;
+    await tx`
+      DELETE FROM project_members
+       WHERE project_id = ${projectId} AND user_id = ${userId}
+    `;
+    return rows.map((r) => r.team_id);
+  });
 }
 
 export async function updateMemberRole(

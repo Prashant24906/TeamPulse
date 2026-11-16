@@ -144,6 +144,49 @@ export async function kickProjectMember(
   // Evict user's sockets from every team room they had in this project.
   // Best-effort, non-fatal — DB mutations already committed.
   await evictUserFromTeamRooms(targetUserId, teamIds);
+
+  // Notify user's active sessions that project membership was revoked
+  emitToUser(targetUserId, WS_EVENTS.PROJECT_MEMBER_REMOVED, { projectId, userId: targetUserId });
+}
+
+// ---------------------------------------------------------------------------
+// Leave project — ADMIN or MEMBER self-removal
+// ---------------------------------------------------------------------------
+
+export async function leaveProject(userId: string, projectId: string): Promise<string[]> {
+  const role = await projectRepo.findMemberRole(projectId, userId);
+  if (!role) {
+    throw new AppError(403, 'You are not a member of this project');
+  }
+
+  if (role === 'OWNER') {
+    throw new AppError(
+      400,
+      'Project OWNER cannot leave without transferring ownership first'
+    );
+  }
+
+  // Atomically remove team memberships and project membership in a transaction
+  let teamIds: string[];
+  if (typeof projectRepo.removeProjectMemberAtomic === 'function') {
+    teamIds = await projectRepo.removeProjectMemberAtomic(projectId, userId);
+  } else {
+    teamIds = await teamRepo.removeAllTeamMembershipsInProject(projectId, userId);
+    await projectRepo.removeMember(projectId, userId);
+  }
+
+  // Notify team members that this user was removed / left from each team
+  for (const teamId of teamIds) {
+    emitToTeam(teamId, WS_EVENTS.TEAM_MEMBER_REMOVED, { teamId, userId });
+  }
+
+  // Evict user's sockets from all team rooms in this project
+  await evictUserFromTeamRooms(userId, teamIds);
+
+  // Notify other active sessions of this user that project membership was revoked
+  emitToUser(userId, WS_EVENTS.PROJECT_MEMBER_REMOVED, { projectId, userId });
+
+  return teamIds;
 }
 
 // ---------------------------------------------------------------------------
