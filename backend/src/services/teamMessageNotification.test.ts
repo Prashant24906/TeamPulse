@@ -282,6 +282,8 @@ describe('Team Message Notifications (Transient Only)', () => {
     expect(payload.notification.project_id).toBe(projectId);
     expect(payload.notification.type).toBe('TEAM_MESSAGE');
     expect(payload.notification.transient).toBe(true);
+    expect(payload.notification.sender_id).toBe(senderId);
+    expect(payload.notification.sender_name).toBe('Alex');
   });
 
   // -------------------------------------------------------------------------

@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { connectSocket, disconnectSocket, getSocket } from '@/lib/socket';
 import type { TeamMessage } from '@/types/message';
 import type { Team } from '@/types/team';
 import type { User } from '@/types/user';
+import type { Notification } from '@/types/notification';
 
 // ---------------------------------------------------------------------------
 // useSocket — manages Socket.IO lifecycle for a protected page
@@ -24,58 +25,75 @@ export function useSocket() {
   const router   = useRouter();
   const pathname = usePathname();
 
+  const pathnameRef = useRef(pathname);
+  const routerRef   = useRef(router);
+
+  useEffect(() => {
+    pathnameRef.current = pathname;
+  }, [pathname]);
+
+  useEffect(() => {
+    routerRef.current = router;
+  }, [router]);
+
   useEffect(() => {
     connectSocket();
     const socket = getSocket();
 
     // Task events — invalidate the correct project's and team's task list
-    socket.on('task.created', (payload: { projectId: string; teamId?: string }) => {
+    const onTaskCreated = (payload: { projectId: string; teamId?: string }) => {
       if (payload.teamId) qc.invalidateQueries({ queryKey: ['tasks', payload.teamId] });
       qc.invalidateQueries({ queryKey: ['tasks', payload.projectId] });
-    });
-    socket.on('task.updated', (payload: { projectId: string; teamId?: string }) => {
+    };
+
+    const onTaskUpdated = (payload: { projectId: string; teamId?: string }) => {
       if (payload.teamId) {
         qc.invalidateQueries({ queryKey: ['tasks', payload.teamId] });
         qc.invalidateQueries({ queryKey: ['closed-tasks', payload.teamId] });
       }
       qc.invalidateQueries({ queryKey: ['tasks', payload.projectId] });
-    });
-    socket.on('task.deleted', (payload: { projectId: string; teamId?: string }) => {
+    };
+
+    const onTaskDeleted = (payload: { projectId: string; teamId?: string }) => {
       if (payload.teamId) {
         qc.invalidateQueries({ queryKey: ['tasks', payload.teamId] });
         qc.invalidateQueries({ queryKey: ['closed-tasks', payload.teamId] });
       }
       qc.invalidateQueries({ queryKey: ['tasks', payload.projectId] });
-    });
-    socket.on('task.closed', (payload: { projectId?: string; teamId: string }) => {
+    };
+
+    const onTaskClosed = (payload: { projectId?: string; teamId: string }) => {
       if (payload.teamId) {
         qc.invalidateQueries({ queryKey: ['tasks', payload.teamId] });
         qc.invalidateQueries({ queryKey: ['closed-tasks', payload.teamId] });
       }
       if (payload.projectId) qc.invalidateQueries({ queryKey: ['tasks', payload.projectId] });
-    });
-    socket.on('task.reopened', (payload: { projectId?: string; teamId: string }) => {
+    };
+
+    const onTaskReopened = (payload: { projectId?: string; teamId: string }) => {
       if (payload.teamId) {
         qc.invalidateQueries({ queryKey: ['tasks', payload.teamId] });
         qc.invalidateQueries({ queryKey: ['closed-tasks', payload.teamId] });
       }
       if (payload.projectId) qc.invalidateQueries({ queryKey: ['tasks', payload.projectId] });
-    });
+    };
 
     // Project events — invalidate the team's project list
-    socket.on('project.created', (payload: { teamId: string }) => {
+    const onProjectCreated = (payload: { teamId: string }) => {
       qc.invalidateQueries({ queryKey: ['projects', payload.teamId] });
-    });
-    socket.on('project.updated', (payload: { teamId: string; projectId: string }) => {
+    };
+
+    const onProjectUpdated = (payload: { teamId: string; projectId: string }) => {
       qc.invalidateQueries({ queryKey: ['projects', payload.teamId] });
       qc.invalidateQueries({ queryKey: ['project', payload.projectId] });
-    });
-    socket.on('project.deleted', (payload: { teamId: string }) => {
+    };
+
+    const onProjectDeleted = (payload: { teamId: string }) => {
       qc.invalidateQueries({ queryKey: ['projects', payload.teamId] });
-    });
+    };
 
     // Project member removed or self-left — refresh members, and if it's the current user, clean up and redirect
-    socket.on('project.member_removed', (payload: { projectId: string; userId: string }) => {
+    const onProjectMemberRemoved = (payload: { projectId: string; userId: string }) => {
       qc.invalidateQueries({ queryKey: ['project-members', payload.projectId] });
 
       const me = qc.getQueryData<User>(['me']);
@@ -92,14 +110,14 @@ export function useSocket() {
         qc.invalidateQueries({ queryKey: ['teams'] });
         qc.invalidateQueries({ queryKey: ['project-teams'] });
         qc.invalidateQueries({ queryKey: ['project-search'] });
-        if (pathname?.includes(`/projects/${payload.projectId}`)) {
-          router.replace('/projects');
+        if (pathnameRef.current?.includes(`/projects/${payload.projectId}`)) {
+          routerRef.current.replace('/projects');
         }
       }
-    });
+    };
 
     // Project membership accepted — notify the accepted user in real time
-    socket.on('project.membership.accepted', (payload: {
+    const onProjectMembershipAccepted = (payload: {
       projectId: string;
       projectName?: string;
       userId: string;
@@ -111,32 +129,32 @@ export function useSocket() {
       qc.invalidateQueries({ queryKey: ['project-teams'] });
       qc.invalidateQueries({ queryKey: ['project-join-requests', payload.projectId] });
       qc.invalidateQueries({ queryKey: ['project-search'] });
-    });
+    };
 
     // Team events
-    socket.on('team.updated', (payload: { teamId: string }) => {
+    const onTeamUpdated = (payload: { teamId: string }) => {
       qc.invalidateQueries({ queryKey: ['team', payload.teamId] });
       qc.invalidateQueries({ queryKey: ['teams'] });
-    });
-    socket.on('team.member_added', (payload: { teamId: string }) => {
+    };
+
+    const onTeamMemberAdded = (payload: { teamId: string }) => {
       qc.invalidateQueries({ queryKey: ['team-members', payload.teamId] });
       qc.invalidateQueries({ queryKey: ['join-requests', payload.teamId] });
-    });
+    };
+
     // Ownership transfer — refresh member list so roles reflect the change
-    socket.on('team.ownership_transferred', (payload: {
+    const onTeamOwnershipTransferred = (payload: {
       teamId:      string;
       newOwnerId:  string;
       prevOwnerId: string;
     }) => {
       qc.invalidateQueries({ queryKey: ['team-members', payload.teamId] });
-      // Invalidate the caller's own team list so their displayed role updates
       qc.invalidateQueries({ queryKey: ['teams'] });
-    });
-    socket.on('team.member_removed', (payload: { teamId: string; userId: string }) => {
+    };
+
+    const onTeamMemberRemoved = (payload: { teamId: string; userId: string }) => {
       qc.invalidateQueries({ queryKey: ['team-members', payload.teamId] });
 
-      // If the current user was removed (self-leave or kicked), clean up their
-      // cache and redirect them away from any page belonging to that team.
       const me = qc.getQueryData<User>(['me']);
       if (me && me.id === payload.userId) {
         qc.setQueryData<Team[]>(['projects'], (old: any) =>
@@ -144,37 +162,35 @@ export function useSocket() {
         );
         qc.removeQueries({ queryKey: ['team', payload.teamId] });
         qc.removeQueries({ queryKey: ['team-members', payload.teamId] });
-        if (pathname?.includes(`/teams/${payload.teamId}`)) {
-          // Go up to project level
-          const match = pathname.match(/\/projects\/([^/]+)/);
-          router.replace(match ? `/projects/${match[1]}` : '/projects');
+        if (pathnameRef.current?.includes(`/teams/${payload.teamId}`)) {
+          const match = pathnameRef.current.match(/\/projects\/([^/]+)/);
+          routerRef.current.replace(match ? `/projects/${match[1]}` : '/projects');
         }
       }
-    });
+    };
+
     // New join request submitted — notify admin UI
-    socket.on('team.join_request_created', (payload: { teamId: string }) => {
+    const onTeamJoinRequestCreated = (payload: { teamId: string }) => {
       qc.invalidateQueries({ queryKey: ['join-requests', payload.teamId] });
-    });
+    };
 
     // Join request approved or rejected — notify the requester
-    socket.on('team.join_request_updated', (payload: {
+    const onTeamJoinRequestUpdated = (payload: {
       teamId: string;
       requestId: string;
       userId: string;
       status: 'APPROVED' | 'REJECTED';
     }) => {
-      // Refresh the search results so the button state reflects the new status
       qc.invalidateQueries({ queryKey: ['team-search'] });
 
       if (payload.status === 'APPROVED') {
-        // The user is now a team member — pull in the updated project-teams list
         qc.invalidateQueries({ queryKey: ['project-teams'] });
         qc.invalidateQueries({ queryKey: ['projects'] });
       }
-    });
+    };
 
     // Team membership accepted — notify the accepted user in real time
-    socket.on('team.membership.accepted', (payload: {
+    const onTeamMembershipAccepted = (payload: {
       teamId: string;
       projectId: string;
       teamName?: string;
@@ -187,34 +203,28 @@ export function useSocket() {
       qc.invalidateQueries({ queryKey: ['project-teams'] });
       qc.invalidateQueries({ queryKey: ['join-requests', payload.teamId] });
       qc.invalidateQueries({ queryKey: ['team-search'] });
-    });
+    };
 
     // Team deleted — remove from cache immediately; redirect if currently viewing it
-    socket.on('team.deleted', (payload: { teamId: string }) => {
-      // Surgically remove the deleted team from the list cache
+    const onTeamDeleted = (payload: { teamId: string }) => {
       qc.setQueryData<Team[]>(['project-teams'], (old: any) =>
         old ? old.filter((t: any) => t.id !== payload.teamId) : old
       );
-      // Remove the per-team cache entries too
       qc.removeQueries({ queryKey: ['team', payload.teamId] });
       qc.removeQueries({ queryKey: ['team-members', payload.teamId] });
 
-      // Redirect any member who is currently inside the deleted team's pages
-      if (pathname?.includes(`/teams/${payload.teamId}`)) {
-        const match = pathname.match(/\/projects\/([^/]+)/);
-        router.replace(match ? `/projects/${match[1]}` : '/projects');
+      if (pathnameRef.current?.includes(`/teams/${payload.teamId}`)) {
+        const match = pathnameRef.current.match(/\/projects\/([^/]+)/);
+        routerRef.current.replace(match ? `/projects/${match[1]}` : '/projects');
       }
-    });
+    };
 
     // Chat — append new message directly to the cache (no extra HTTP request).
-    // Deduplication prevents doubles when the sender's own useSendMessage
-    // mutation has already appended the same message.
-    socket.on('message.created', (payload: {
+    const onMessageCreated = (payload: {
       id: string; teamId: string; senderId: string;
       senderName: string; content: string; createdAt: string;
     }) => {
       const existing = qc.getQueryData<TeamMessage[]>(['messages', payload.teamId]);
-      // Only update if the cache for this team is already loaded
       if (existing === undefined) return;
       if (existing.some((m) => m.id === payload.id)) return;
 
@@ -228,39 +238,64 @@ export function useSocket() {
         updated_at:  payload.createdAt,
       };
       qc.setQueryData<TeamMessage[]>(['messages', payload.teamId], [...existing, newMsg]);
-    });
+    };
 
     // Notification events — invalidate cache so the bell and dropdown refresh
-    socket.on('notification.received', (payload?: { transient?: boolean }) => {
+    const onNotificationReceived = (payload?: Notification) => {
       // Transient notifications (e.g. team chat messages) must NOT invalidate the persistent notification cache
-      if (payload?.transient) {
-        return;
+      if (!payload?.transient) {
+        qc.invalidateQueries({ queryKey: ['notifications'] });
       }
-      qc.invalidateQueries({ queryKey: ['notifications'] });
-    });
+      // Broadcast to window so any component (e.g. NotificationToast) receives it reliably
+      if (typeof window !== 'undefined' && payload) {
+        window.dispatchEvent(new CustomEvent('teamflow:notification', { detail: payload }));
+      }
+    };
+
+    // Register all listeners
+    socket.on('task.created', onTaskCreated);
+    socket.on('task.updated', onTaskUpdated);
+    socket.on('task.deleted', onTaskDeleted);
+    socket.on('task.closed', onTaskClosed);
+    socket.on('task.reopened', onTaskReopened);
+    socket.on('project.created', onProjectCreated);
+    socket.on('project.updated', onProjectUpdated);
+    socket.on('project.deleted', onProjectDeleted);
+    socket.on('project.member_removed', onProjectMemberRemoved);
+    socket.on('project.membership.accepted', onProjectMembershipAccepted);
+    socket.on('team.updated', onTeamUpdated);
+    socket.on('team.member_added', onTeamMemberAdded);
+    socket.on('team.ownership_transferred', onTeamOwnershipTransferred);
+    socket.on('team.member_removed', onTeamMemberRemoved);
+    socket.on('team.join_request_created', onTeamJoinRequestCreated);
+    socket.on('team.join_request_updated', onTeamJoinRequestUpdated);
+    socket.on('team.membership.accepted', onTeamMembershipAccepted);
+    socket.on('team.deleted', onTeamDeleted);
+    socket.on('message.created', onMessageCreated);
+    socket.on('notification.received', onNotificationReceived);
 
     return () => {
-      socket.off('task.created');
-      socket.off('task.updated');
-      socket.off('task.deleted');
-      socket.off('task.closed');
-      socket.off('task.reopened');
-      socket.off('project.created');
-      socket.off('project.updated');
-      socket.off('project.deleted');
-      socket.off('project.member_removed');
-      socket.off('project.membership.accepted');
-      socket.off('team.updated');
-      socket.off('team.member_added');
-      socket.off('team.ownership_transferred');
-      socket.off('team.member_removed');
-      socket.off('team.join_request_created');
-      socket.off('team.join_request_updated');
-      socket.off('team.membership.accepted');
-      socket.off('team.deleted');
-      socket.off('message.created');
-      socket.off('notification.received');
+      socket.off('task.created', onTaskCreated);
+      socket.off('task.updated', onTaskUpdated);
+      socket.off('task.deleted', onTaskDeleted);
+      socket.off('task.closed', onTaskClosed);
+      socket.off('task.reopened', onTaskReopened);
+      socket.off('project.created', onProjectCreated);
+      socket.off('project.updated', onProjectUpdated);
+      socket.off('project.deleted', onProjectDeleted);
+      socket.off('project.member_removed', onProjectMemberRemoved);
+      socket.off('project.membership.accepted', onProjectMembershipAccepted);
+      socket.off('team.updated', onTeamUpdated);
+      socket.off('team.member_added', onTeamMemberAdded);
+      socket.off('team.ownership_transferred', onTeamOwnershipTransferred);
+      socket.off('team.member_removed', onTeamMemberRemoved);
+      socket.off('team.join_request_created', onTeamJoinRequestCreated);
+      socket.off('team.join_request_updated', onTeamJoinRequestUpdated);
+      socket.off('team.membership.accepted', onTeamMembershipAccepted);
+      socket.off('team.deleted', onTeamDeleted);
+      socket.off('message.created', onMessageCreated);
+      socket.off('notification.received', onNotificationReceived);
       disconnectSocket();
     };
-  }, [qc, router, pathname]);
+  }, [qc]);
 }

@@ -17,6 +17,8 @@ export interface Notification {
   team_id?: string | null;
   project_id?: string | null;
   message_id?: string | null;
+  sender_id?: string | null;
+  sender_name?: string | null;
   join_request_id?: string | null;
   type: NotificationType;
   message: string;

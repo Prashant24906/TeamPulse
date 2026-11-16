@@ -4,24 +4,33 @@ import { describe, it, expect } from 'vitest';
 // Mirror of frontend parseToastDetails logic to verify exact parsing & formatting
 // ---------------------------------------------------------------------------
 
-function parseToastDetails(notification: { type: string; message: string }) {
+function parseToastDetails(notification: {
+  type: string;
+  message: string;
+  sender_name?: string | null;
+}) {
   const { type, message } = notification;
 
   if (type === 'TEAM_MESSAGE') {
-    const match = message.match(/^(.*?)\s+sent a message in\s+([^:]+)(?::\s*"?(.*?)"?)?$/);
-    if (match) {
-      const sender = match[1];
-      const team = match[2];
-      const preview = match[3];
+    const withPreview = message.match(/^(.*?)\s+sent a message in\s+([^:]+):\s*"([\s\S]*)"$/);
+    if (withPreview) {
       return {
-        title: sender,
-        subtitle: `Sent a message in ${team}`,
-        preview: preview ? `"${preview}"` : undefined,
+        title: notification.sender_name || withPreview[1],
+        subtitle: `Sent a message in ${withPreview[2].trim()}`,
+        preview: `"${withPreview[3]}"`,
+        iconType: 'TEAM_MESSAGE' as const,
+      };
+    }
+    const withoutPreview = message.match(/^(.*?)\s+sent a message in\s+(.*?)(\.)?$/);
+    if (withoutPreview) {
+      return {
+        title: notification.sender_name || withoutPreview[1],
+        subtitle: `Sent a message in ${withoutPreview[2].trim().replace(/\.$/, '')}`,
         iconType: 'TEAM_MESSAGE' as const,
       };
     }
     return {
-      title: 'New Message',
+      title: notification.sender_name || 'New Message',
       subtitle: message,
       iconType: 'TEAM_MESSAGE' as const,
     };
@@ -116,8 +125,21 @@ describe('Toast Notification Details Parsing', () => {
     });
 
     expect(result.title).toBe('Alex');
-    expect(result.subtitle).toBe('Sent a message in Backend Development.');
+    expect(result.subtitle).toBe('Sent a message in Backend Development');
     expect(result.preview).toBeUndefined();
+    expect(result.iconType).toBe('TEAM_MESSAGE');
+  });
+
+  it('prefers sender_name if available on TEAM_MESSAGE', () => {
+    const result = parseToastDetails({
+      type: 'TEAM_MESSAGE',
+      message: 'Alex sent a message in Backend Development: "hello"',
+      sender_name: 'Alex Johnson',
+    });
+
+    expect(result.title).toBe('Alex Johnson');
+    expect(result.subtitle).toBe('Sent a message in Backend Development');
+    expect(result.preview).toBe('"hello"');
     expect(result.iconType).toBe('TEAM_MESSAGE');
   });
 

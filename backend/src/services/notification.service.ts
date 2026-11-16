@@ -193,6 +193,8 @@ export async function notifyTeamMessage(
         const transientNotification = {
           id: `transient_msg_${messageId}_${recipient.user_id}`,
           user_id: recipient.user_id,
+          sender_id: senderId,
+          sender_name: senderName,
           task_id: null,
           team_id: teamId,
           project_id: resolvedProjectId,
