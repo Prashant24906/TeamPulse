@@ -1,6 +1,7 @@
 import { AppError } from '../middleware/error.middleware';
 import * as teamRepo    from '../repositories/team.repository';
 import * as messageRepo from '../repositories/teamMessage.repository';
+import * as notificationService from './notification.service';
 import { emitToTeam }   from '../websocket/emit';
 import { WS_EVENTS }    from '../websocket/events';
 import type { SendMessageInput, ListMessagesInput } from '../validators/teamMessage.validator';
@@ -54,6 +55,20 @@ export async function sendMessage(
     content:     message.content,
     createdAt:   message.created_at,
   });
+
+  // Generate team message notifications for other members — best-effort, non-fatal
+  try {
+    await notificationService.notifyTeamMessage(
+      message.id,
+      teamId,
+      userId,
+      message.sender_name,
+      message.content,
+      projectId
+    );
+  } catch (err) {
+    console.error('[message] Failed to generate team message notifications (non-fatal):', (err as Error).message);
+  }
 
   return message;
 }

@@ -1,6 +1,7 @@
 import sql from '../config/database';
 import type { TaskDeadlineJobData, NotificationType } from '../jobs/jobs/taskDeadline.job';
 import { createPubSubConnection } from '../config/redis';
+import * as teamRepo from '../repositories/team.repository';
 
 // ---------------------------------------------------------------------------
 // notification.service.ts
@@ -8,12 +9,13 @@ import { createPubSubConnection } from '../config/redis';
 // Responsibilities:
 //   - Persist notifications written by the worker process (deadline jobs)
 //   - Persist TASK_ASSIGNED notifications directly from the HTTP process
+//   - Persist TEAM_MESSAGE notifications directly from the HTTP process
 //   - Query, count, and mark notifications for the REST API
 //   - Check task status so TASK_OVERDUE is skipped for completed/closed tasks
 //
 // Real-time delivery:
 //   Deadline notifications: worker persists → Redis publish → HTTP subscriber → emitToUser
-//   Assignment notifications: HTTP process persists + publishes → Redis subscriber → emitToUser
+//   Assignment & Message notifications: HTTP process persists + publishes → Redis subscriber → emitToUser
 // ---------------------------------------------------------------------------
 
 const NOTIFICATION_CHANNEL = 'notifications:push';
@@ -21,14 +23,16 @@ const NOTIFICATION_CHANNEL = 'notifications:push';
 export interface Notification {
   id: string;
   user_id: string;
-  task_id: string;
+  task_id: string | null;
   team_id?: string | null;
   project_id?: string | null;
+  message_id?: string | null;
   type: NotificationType;
   message: string;
   job_id: string;
   is_read: boolean;
   created_at: Date;
+  transient?: boolean;
 }
 
 /**
@@ -39,13 +43,15 @@ export interface Notification {
 export async function persistNotification(
   jobId: string,
   userId: string,
-  taskId: string,
+  taskId: string | null,
   type: NotificationType,
-  message: string
+  message: string,
+  teamId?: string | null,
+  messageId?: string | null
 ): Promise<Notification | null> {
   const rows = await sql<Notification[]>`
-    INSERT INTO notifications (job_id, user_id, task_id, type, message)
-    VALUES (${jobId}, ${userId}, ${taskId}, ${type}, ${message})
+    INSERT INTO notifications (job_id, user_id, task_id, team_id, message_id, type, message)
+    VALUES (${jobId}, ${userId}, ${taskId}, ${teamId ?? null}, ${messageId ?? null}, ${type}, ${message})
     ON CONFLICT (job_id, user_id) DO NOTHING
     RETURNING *
   `;
@@ -111,6 +117,114 @@ export async function notifyTaskAssigned(
   }
 }
 
+// ---------------------------------------------------------------------------
+// TEAM_MESSAGE — transient real-time toast to all other team members
+//
+// Transient: does NOT insert into PostgreSQL, does NOT increase unread count,
+// does NOT appear in the notification bell dropdown. Publishes to Redis with
+// `transient: true` so the frontend displays an Instagram-style toast only.
+// ---------------------------------------------------------------------------
+
+/**
+ * Notify all team members (except the sender) that a message was posted.
+ * Transient only: delivers real-time toast without PostgreSQL persistence.
+ *
+ * @param messageId   ID of the posted team message
+ * @param teamId      ID of the team
+ * @param senderId    User ID of the sender (excluded from notifications)
+ * @param senderName  Display name of the sender
+ * @param content     Content of the message (preview will be truncated safely)
+ * @param projectId   Optional project ID for navigation context
+ */
+export async function notifyTeamMessage(
+  messageId: string,
+  teamId: string,
+  senderId: string,
+  senderName: string,
+  content: string,
+  projectId?: string
+): Promise<void> {
+  // 1. Resolve team info
+  const team = await teamRepo.findTeamById(teamId);
+  if (!team) return;
+
+  const resolvedProjectId = projectId ?? team.project_id;
+  const teamName = team.name;
+
+  // 2. Resolve recipients from team_members table — strictly excluding sender
+  const members = await teamRepo.getMembers(teamId);
+  const recipients = members.filter((m) => m.user_id !== senderId);
+  if (recipients.length === 0) return;
+
+  // 3. Format message preview safely
+  const cleanContent = content.replace(/\s+/g, ' ').trim();
+  const preview = cleanContent.length > 60
+    ? cleanContent.substring(0, 57) + '...'
+    : cleanContent;
+  const messageText = preview
+    ? `${senderName} sent a message in ${teamName}: "${preview}"`
+    : `${senderName} sent a message in ${teamName}.`;
+
+  // 4. Connect Redis publisher for real-time delivery (best-effort)
+  let publisher: ReturnType<typeof createPubSubConnection> | null = null;
+  try {
+    publisher = createPubSubConnection();
+  } catch (err) {
+    console.error('[notification] Redis connection failed for TEAM_MESSAGE (non-fatal):', (err as Error).message);
+  }
+
+  try {
+    for (const recipient of recipients) {
+      try {
+        const transientNotification = {
+          id: `transient_msg_${messageId}_${recipient.user_id}`,
+          user_id: recipient.user_id,
+          task_id: null,
+          team_id: teamId,
+          project_id: resolvedProjectId,
+          message_id: messageId,
+          type: 'TEAM_MESSAGE' as const,
+          message: messageText,
+          job_id: `msg_${messageId}`,
+          is_read: false,
+          created_at: new Date().toISOString(),
+          transient: true,
+        };
+
+        if (publisher) {
+          try {
+            await publisher.publish(
+              NOTIFICATION_CHANNEL,
+              JSON.stringify({
+                userId: recipient.user_id,
+                notification: transientNotification,
+              })
+            );
+          } catch (pubErr) {
+            console.error(
+              `[notification] Redis publish failed for recipient ${recipient.user_id} (non-fatal):`,
+              (pubErr as Error).message
+            );
+          }
+        }
+      } catch (recipErr) {
+        console.error(
+          `[notification] Failed to deliver transient TEAM_MESSAGE for recipient ${recipient.user_id} (non-fatal):`,
+          (recipErr as Error).message
+        );
+      }
+    }
+  } finally {
+    if (publisher) {
+      try {
+        await publisher.quit();
+      } catch {
+        // silent
+      }
+    }
+  }
+}
+
 /**
  * Build recipient list for a task deadline job.
  * Notifies: assigned_to user (if set), otherwise the task creator.
@@ -151,16 +265,19 @@ export async function getNotificationsByUser(
       n.id, 
       n.user_id, 
       n.task_id, 
+      n.team_id AS direct_team_id,
+      n.message_id,
       n.type, 
       n.message, 
       n.job_id, 
       n.is_read, 
       n.created_at,
-      t.team_id,
-      tm.project_id
+      COALESCE(n.team_id, t.team_id) AS team_id,
+      COALESCE(tm.project_id, direct_team.project_id) AS project_id
     FROM notifications n
     LEFT JOIN tasks t ON t.id = n.task_id
     LEFT JOIN teams tm ON tm.id = t.team_id
+    LEFT JOIN teams direct_team ON direct_team.id = n.team_id
     WHERE n.user_id = ${userId}
     ORDER BY n.created_at DESC
     LIMIT ${limit} OFFSET ${offset}
@@ -192,7 +309,7 @@ export async function markNotificationAsRead(
       UPDATE notifications
       SET is_read = TRUE
       WHERE id = ${notificationId} AND user_id = ${userId}
-      RETURNING id, user_id, task_id, type, message, job_id, is_read, created_at
+      RETURNING id, user_id, task_id, team_id, message_id, type, message, job_id, is_read, created_at
     )
     SELECT 
       u.id, 
@@ -203,11 +320,13 @@ export async function markNotificationAsRead(
       u.job_id, 
       u.is_read, 
       u.created_at,
-      t.team_id,
-      tm.project_id
+      u.message_id,
+      COALESCE(u.team_id, t.team_id) AS team_id,
+      COALESCE(tm.project_id, direct_team.project_id) AS project_id
     FROM updated u
     LEFT JOIN tasks t ON t.id = u.task_id
     LEFT JOIN teams tm ON tm.id = t.team_id
+    LEFT JOIN teams direct_team ON direct_team.id = u.team_id
   `;
   return rows[0] ?? null;
 }

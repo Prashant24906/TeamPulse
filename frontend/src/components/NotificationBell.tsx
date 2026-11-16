@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Bell, CheckCheck, Clock, AlertCircle, UserCheck, Loader2, X } from 'lucide-react';
+import { Bell, CheckCheck, Clock, AlertCircle, UserCheck, MessageSquare, Loader2, X } from 'lucide-react';
 import {
   useNotifications,
   useUnreadNotificationCount,
@@ -44,18 +44,23 @@ function NotificationItem({
 }) {
   const isOverdue  = notification.type === 'TASK_OVERDUE';
   const isAssigned = notification.type === 'TASK_ASSIGNED';
+  const isMessage  = notification.type === 'TEAM_MESSAGE';
 
-  const icon = isAssigned
-    ? <UserCheck size={15} />
-    : isOverdue
-      ? <AlertCircle size={15} />
-      : <Clock size={15} />;
+  const icon = isMessage
+    ? <MessageSquare size={15} />
+    : isAssigned
+      ? <UserCheck size={15} />
+      : isOverdue
+        ? <AlertCircle size={15} />
+        : <Clock size={15} />;
 
-  const iconColor = isAssigned
-    ? 'text-emerald-500'
-    : isOverdue
-      ? 'text-red-500'
-      : 'text-amber-500';
+  const iconColor = isMessage
+    ? 'text-indigo-500'
+    : isAssigned
+      ? 'text-emerald-500'
+      : isOverdue
+        ? 'text-red-500'
+        : 'text-amber-500';
 
   return (
     <button

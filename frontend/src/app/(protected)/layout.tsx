@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useAuth, useLogout } from '@/hooks/useAuth';
 import { useSocket } from '@/hooks/useSocket';
 import NotificationBell from '@/components/NotificationBell';
+import { NotificationToastProvider } from '@/components/NotificationToast';
 import {
   LayoutDashboard, Users, LogOut, Loader2,
   Search, UserCircle, Menu, X,
@@ -108,7 +109,8 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
   if (isError || !user) return null;
 
   return (
-    <div className="flex flex-col md:flex-row h-screen overflow-hidden bg-gray-100">
+    <NotificationToastProvider>
+      <div className="flex flex-col md:flex-row h-screen overflow-hidden bg-gray-100">
       {/* ── Desktop Sidebar ─────────────────────────────────────── */}
       <DesktopSidebar />
 
@@ -228,5 +230,6 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
         })}
       </nav>
     </div>
+  </NotificationToastProvider>
   );
 }

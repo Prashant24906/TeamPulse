@@ -176,7 +176,11 @@ export function useSocket() {
     });
 
     // Notification events — invalidate cache so the bell and dropdown refresh
-    socket.on('notification.received', () => {
+    socket.on('notification.received', (payload?: { transient?: boolean }) => {
+      // Transient notifications (e.g. team chat messages) must NOT invalidate the persistent notification cache
+      if (payload?.transient) {
+        return;
+      }
       qc.invalidateQueries({ queryKey: ['notifications'] });
     });
 
