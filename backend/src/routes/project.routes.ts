@@ -5,6 +5,7 @@ import * as taskController    from '../controllers/task.controller';
 import * as joinController    from '../controllers/teamJoinRequest.controller';
 import * as messageController from '../controllers/teamMessage.controller';
 import * as teamController    from '../controllers/team.controller';
+import * as resourceController from '../controllers/projectResource.controller';
 
 const router = Router();
 
@@ -69,5 +70,14 @@ router.get('/:projectId/teams/:teamId/tasks',          taskController.getTasksBy
 router.post('/:projectId/join-requests',              projectController.createJoinRequest);
 router.get('/:projectId/join-requests',               projectController.getJoinRequests);
 router.patch('/:projectId/join-requests/:requestId',  projectController.resolveJoinRequest);
+
+// ---------------------------------------------------------------------------
+// Project Resources
+// ---------------------------------------------------------------------------
+
+router.get('/:projectId/resources',                resourceController.getResources);
+router.post('/:projectId/resources',               resourceController.createResource);
+router.patch('/:projectId/resources/:resourceId',  resourceController.updateResource);
+router.delete('/:projectId/resources/:resourceId', resourceController.deleteResource);
 
 export default router;

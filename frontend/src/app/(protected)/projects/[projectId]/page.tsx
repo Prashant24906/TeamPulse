@@ -11,8 +11,9 @@ import type { ProjectMember } from '@/hooks/useProjects';
 import { useProjectJoinRequests, useResolveProjectJoinRequest } from '@/hooks/useProjectDiscovery';
 import {
   ArrowLeft, Users, Plus, Trash2, ChevronRight, Loader2, AlertCircle, X,
-  FolderOpen, Bell, Check, XCircle, UserCircle, UserMinus,
+  FolderOpen, Bell, Check, XCircle, UserCircle, UserMinus, Link2,
 } from 'lucide-react';
+import { ProjectResources } from '@/components/ProjectResources';
 import type { ProjectRole } from '@/types/project';
 import { z } from 'zod';
 
@@ -141,7 +142,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
   const kickMember       = useKickProjectMember(projectId);
 
   const [showCreateTeam, setShowCreateTeam] = useState(false);
-  const [activeTab, setActiveTab]           = useState<'teams' | 'members' | 'requests'>('teams');
+  const [activeTab, setActiveTab]           = useState<'teams' | 'resources' | 'members' | 'requests'>('teams');
 
   const handleDeleteProject = async () => {
     if (!confirm(`Delete project "${project?.name}"? This removes all teams and tasks.`)) return;
@@ -210,47 +211,61 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
       </div>
 
       {/* Tabs */}
-      {isOwnerOrAdmin && (
-        <div className="flex gap-2 mb-6 border-b border-gray-200 overflow-x-auto pb-1 flex-nowrap">
-          <button
-            onClick={() => setActiveTab('teams')}
-            className={`px-4 py-2 text-xs sm:text-sm font-medium border-b-2 whitespace-nowrap transition ${
-              activeTab === 'teams'
-                ? 'border-emerald-600 text-emerald-700 font-semibold'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            Teams
-          </button>
-          <button
-            onClick={() => setActiveTab('requests')}
-            className={`flex items-center gap-1.5 px-4 py-2 text-xs sm:text-sm font-medium border-b-2 whitespace-nowrap transition ${
-              activeTab === 'requests'
-                ? 'border-emerald-600 text-emerald-700 font-semibold'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            <Bell size={13} />
-            Join Requests
-            {pendingCount > 0 && (
-              <span className="ml-1 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
-                {pendingCount}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => setActiveTab('members')}
-            className={`flex items-center gap-1.5 px-4 py-2 text-xs sm:text-sm font-medium border-b-2 whitespace-nowrap transition ${
-              activeTab === 'members'
-                ? 'border-emerald-600 text-emerald-700 font-semibold'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            <Users size={13} />
-            Members
-          </button>
-        </div>
-      )}
+      <div className="flex gap-2 mb-6 border-b border-gray-200 overflow-x-auto pb-1 flex-nowrap">
+        <button
+          onClick={() => setActiveTab('teams')}
+          className={`px-4 py-2 text-xs sm:text-sm font-medium border-b-2 whitespace-nowrap transition ${
+            activeTab === 'teams'
+              ? 'border-emerald-600 text-emerald-700 font-semibold'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Teams
+        </button>
+        <button
+          id="resources-tab-btn"
+          onClick={() => setActiveTab('resources')}
+          className={`flex items-center gap-1.5 px-4 py-2 text-xs sm:text-sm font-medium border-b-2 whitespace-nowrap transition ${
+            activeTab === 'resources'
+              ? 'border-emerald-600 text-emerald-700 font-semibold'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <Link2 size={13} />
+          Resources
+        </button>
+        {isOwnerOrAdmin && (
+          <>
+            <button
+              onClick={() => setActiveTab('requests')}
+              className={`flex items-center gap-1.5 px-4 py-2 text-xs sm:text-sm font-medium border-b-2 whitespace-nowrap transition ${
+                activeTab === 'requests'
+                  ? 'border-emerald-600 text-emerald-700 font-semibold'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <Bell size={13} />
+              Join Requests
+              {pendingCount > 0 && (
+                <span className="ml-1 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                  {pendingCount}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => setActiveTab('members')}
+              className={`flex items-center gap-1.5 px-4 py-2 text-xs sm:text-sm font-medium border-b-2 whitespace-nowrap transition ${
+                activeTab === 'members'
+                  ? 'border-emerald-600 text-emerald-700 font-semibold'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <Users size={13} />
+              Members
+            </button>
+          </>
+        )}
+      </div>
 
       {/* ── Teams tab ───────────────────────────────────────────── */}
       {activeTab === 'teams' && (
@@ -298,6 +313,14 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
             </div>
           )}
         </>
+      )}
+
+      {/* ── Resources tab ─────────────────────────────────────────── */}
+      {activeTab === 'resources' && (
+        <ProjectResources
+          projectId={projectId}
+          isOwnerOrAdmin={isOwnerOrAdmin}
+        />
       )}
 
       {/* ── Join Requests tab ───────────────────────────────────── */}
