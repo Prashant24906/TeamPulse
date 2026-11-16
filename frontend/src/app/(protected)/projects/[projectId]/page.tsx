@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, use } from 'react';
+import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   useProject, useProjectTeams, useCreateTeam, useDeleteProject,
   useProjectMembers, useUpdateProjectMemberRole, useKickProjectMember,
@@ -141,8 +141,22 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
   const updateMemberRole = useUpdateProjectMemberRole(projectId);
   const kickMember       = useKickProjectMember(projectId);
 
+  const searchParams = useSearchParams();
   const [showCreateTeam, setShowCreateTeam] = useState(false);
-  const [activeTab, setActiveTab]           = useState<'teams' | 'resources' | 'members' | 'requests'>('teams');
+  const [activeTab, setActiveTab]           = useState<'teams' | 'resources' | 'members' | 'requests'>(() => {
+    const tab = searchParams.get('tab');
+    if (tab === 'requests' || tab === 'resources' || tab === 'members' || tab === 'teams') {
+      return tab;
+    }
+    return 'teams';
+  });
+
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab === 'requests' || tab === 'resources' || tab === 'members' || tab === 'teams') {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
 
   const handleDeleteProject = async () => {
     if (!confirm(`Delete project "${project?.name}"? This removes all teams and tasks.`)) return;

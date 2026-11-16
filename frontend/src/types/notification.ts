@@ -2,7 +2,13 @@
 // types/notification.ts — TypeScript types for the notification system
 // ---------------------------------------------------------------------------
 
-export type NotificationType = 'TASK_DUE_SOON' | 'TASK_OVERDUE' | 'TASK_ASSIGNED' | 'TEAM_MESSAGE';
+export type NotificationType =
+  | 'TASK_DUE_SOON'
+  | 'TASK_OVERDUE'
+  | 'TASK_ASSIGNED'
+  | 'TEAM_MESSAGE'
+  | 'PROJECT_JOIN_REQUEST'
+  | 'TEAM_JOIN_REQUEST';
 
 export interface Notification {
   id: string;
@@ -11,6 +17,7 @@ export interface Notification {
   team_id?: string | null;
   project_id?: string | null;
   message_id?: string | null;
+  join_request_id?: string | null;
   type: NotificationType;
   message: string;
   job_id: string;

@@ -2,10 +2,12 @@ import { AppError } from '../middleware/error.middleware';
 import * as teamRepo from '../repositories/team.repository';
 import * as joinRepo from '../repositories/teamJoinRequest.repository';
 import * as projectRepo from '../repositories/project.repository';
+import * as userRepo from '../repositories/user.repository';
 import { emitToTeam, emitToUser } from '../websocket/emit';
 import { WS_EVENTS } from '../websocket/events';
 import type { UpdateJoinRequestInput } from '../validators/teamJoinRequest.validator';
 import { assertTeamBelongsToProject } from './team.guard';
+import * as notificationService from './notification.service';
 
 // Role hierarchy helper (mirrors team.service.ts)
 const ROLE_RANK: Record<'OWNER' | 'ADMIN' | 'MEMBER', number> = {
@@ -56,6 +58,29 @@ export async function createJoinRequest(userId: string, teamId: string, projectI
     requestId: request.id,
     userId,
   });
+
+  // 7. Persistent & real-time notification to team OWNER and ADMIN members
+  try {
+    let requesterName = 'A user';
+    try {
+      const user = await userRepo.findById(userId);
+      if (user?.name) requesterName = user.name;
+    } catch {
+      // silent
+    }
+    const eventKey = new Date(request.updated_at || request.created_at || Date.now()).getTime();
+    await notificationService.notifyTeamJoinRequest(
+      request.id,
+      teamId,
+      team.name,
+      userId,
+      requesterName,
+      team.project_id,
+      eventKey
+    );
+  } catch (err) {
+    console.error('[teamJoinRequest.service] Failed to send team join request notification (non-fatal):', (err as Error).message);
+  }
 
   return request;
 }

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Bell, CheckCheck, Clock, AlertCircle, UserCheck, MessageSquare, Loader2, X } from 'lucide-react';
+import { Bell, CheckCheck, Clock, AlertCircle, UserCheck, MessageSquare, UserPlus, Loader2, X } from 'lucide-react';
 import {
   useNotifications,
   useUnreadNotificationCount,
@@ -42,25 +42,33 @@ function NotificationItem({
   notification: Notification;
   onClick: () => void;
 }) {
-  const isOverdue  = notification.type === 'TASK_OVERDUE';
-  const isAssigned = notification.type === 'TASK_ASSIGNED';
-  const isMessage  = notification.type === 'TEAM_MESSAGE';
+  const isOverdue    = notification.type === 'TASK_OVERDUE';
+  const isAssigned   = notification.type === 'TASK_ASSIGNED';
+  const isMessage    = notification.type === 'TEAM_MESSAGE';
+  const isProjectJoin= notification.type === 'PROJECT_JOIN_REQUEST';
+  const isTeamJoin   = notification.type === 'TEAM_JOIN_REQUEST';
 
   const icon = isMessage
     ? <MessageSquare size={15} />
     : isAssigned
       ? <UserCheck size={15} />
-      : isOverdue
-        ? <AlertCircle size={15} />
-        : <Clock size={15} />;
+      : isProjectJoin || isTeamJoin
+        ? <UserPlus size={15} />
+        : isOverdue
+          ? <AlertCircle size={15} />
+          : <Clock size={15} />;
 
   const iconColor = isMessage
     ? 'text-indigo-500'
     : isAssigned
       ? 'text-emerald-500'
-      : isOverdue
-        ? 'text-red-500'
-        : 'text-amber-500';
+      : isProjectJoin
+        ? 'text-purple-600'
+        : isTeamJoin
+          ? 'text-sky-600'
+          : isOverdue
+            ? 'text-red-500'
+            : 'text-amber-500';
 
   return (
     <button
@@ -101,8 +109,14 @@ export default function NotificationBell({ align = 'left' }: NotificationBellPro
       markRead.mutate(notification.id);
     }
     setOpen(false);
-    if (notification.project_id && notification.team_id) {
+    if (notification.type === 'PROJECT_JOIN_REQUEST' && notification.project_id) {
+      router.push(`/projects/${notification.project_id}?tab=requests`);
+    } else if (notification.type === 'TEAM_JOIN_REQUEST' && notification.project_id && notification.team_id) {
+      router.push(`/projects/${notification.project_id}/teams/${notification.team_id}?tab=requests`);
+    } else if (notification.project_id && notification.team_id) {
       router.push(`/projects/${notification.project_id}/teams/${notification.team_id}`);
+    } else if (notification.project_id) {
+      router.push(`/projects/${notification.project_id}`);
     }
   };
 

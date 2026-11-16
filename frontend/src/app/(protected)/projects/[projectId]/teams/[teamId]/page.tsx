@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, use } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, use } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   useTeam, useTeamMembers, useUpdateTeam, useRemoveMember,
@@ -210,10 +210,24 @@ export default function TeamDetailPage({ params }: { params: Promise<{ projectId
   const reopenTask = useReopenTask(teamId);
   const updateJoinReq = useUpdateJoinRequest(teamId);
 
+  const searchParams = useSearchParams();
   const [taskModal, setTaskModal] = useState<{
     open: boolean; edit?: Task; defaultStatus?: TaskStatus;
   }>({ open: false });
-  const [activeTab, setActiveTab] = useState<'board' | 'closed' | 'members' | 'requests' | 'chat'>('board');
+  const [activeTab, setActiveTab] = useState<'board' | 'closed' | 'members' | 'requests' | 'chat'>(() => {
+    const tab = searchParams.get('tab');
+    if (tab === 'requests' || tab === 'closed' || tab === 'members' || tab === 'chat' || tab === 'board') {
+      return tab;
+    }
+    return 'board';
+  });
+
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab === 'requests' || tab === 'closed' || tab === 'members' || tab === 'chat' || tab === 'board') {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
   const [mobileStatusFilter, setMobileStatusFilter] = useState<'ALL' | TaskStatus>('ALL');
 
   const myRole = team?.role ?? null;

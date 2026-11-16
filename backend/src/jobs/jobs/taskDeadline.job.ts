@@ -8,7 +8,13 @@
 
 export const NOTIFICATION_QUEUE_NAME = 'notifications';
 
-export type NotificationType = 'TASK_DUE_SOON' | 'TASK_OVERDUE' | 'TASK_ASSIGNED' | 'TEAM_MESSAGE';
+export type NotificationType =
+  | 'TASK_DUE_SOON'
+  | 'TASK_OVERDUE'
+  | 'TASK_ASSIGNED'
+  | 'TEAM_MESSAGE'
+  | 'PROJECT_JOIN_REQUEST'
+  | 'TEAM_JOIN_REQUEST';
 
 export interface TaskDeadlineJobData {
   taskId: string;

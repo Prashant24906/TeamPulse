@@ -45,6 +45,42 @@ function parseToastDetails(notification: { type: string; message: string }) {
     };
   }
 
+  if (type === 'PROJECT_JOIN_REQUEST') {
+    const match = message.match(/^(.*?)\s+requested to join\s+(.*?)(\.)?$/);
+    if (match) {
+      const requester = match[1];
+      const target = match[2];
+      return {
+        title: requester,
+        subtitle: `Requested to join ${target}`,
+        iconType: 'PROJECT_JOIN_REQUEST' as const,
+      };
+    }
+    return {
+      title: 'Project Join Request',
+      subtitle: message,
+      iconType: 'PROJECT_JOIN_REQUEST' as const,
+    };
+  }
+
+  if (type === 'TEAM_JOIN_REQUEST') {
+    const match = message.match(/^(.*?)\s+requested to join\s+(.*?)(\.)?$/);
+    if (match) {
+      const requester = match[1];
+      const target = match[2];
+      return {
+        title: requester,
+        subtitle: `Requested to join ${target}`,
+        iconType: 'TEAM_JOIN_REQUEST' as const,
+      };
+    }
+    return {
+      title: 'Team Join Request',
+      subtitle: message,
+      iconType: 'TEAM_JOIN_REQUEST' as const,
+    };
+  }
+
   if (type === 'TASK_OVERDUE') {
     return {
       title: 'Task Overdue',
@@ -105,6 +141,28 @@ describe('Toast Notification Details Parsing', () => {
     expect(result.title).toBe('Task Overdue');
     expect(result.subtitle).toBe('Task "Fix Login Bug" is overdue (was due 15 Nov, 2026).');
     expect(result.iconType).toBe('TASK_OVERDUE');
+  });
+
+  it('correctly parses PROJECT_JOIN_REQUEST notification', () => {
+    const result = parseToastDetails({
+      type: 'PROJECT_JOIN_REQUEST',
+      message: 'Alex requested to join Project TeamPulse.',
+    });
+
+    expect(result.title).toBe('Alex');
+    expect(result.subtitle).toBe('Requested to join Project TeamPulse');
+    expect(result.iconType).toBe('PROJECT_JOIN_REQUEST');
+  });
+
+  it('correctly parses TEAM_JOIN_REQUEST notification', () => {
+    const result = parseToastDetails({
+      type: 'TEAM_JOIN_REQUEST',
+      message: 'Alex requested to join Backend Development.',
+    });
+
+    expect(result.title).toBe('Alex');
+    expect(result.subtitle).toBe('Requested to join Backend Development');
+    expect(result.iconType).toBe('TEAM_JOIN_REQUEST');
   });
 
   it('correctly formats TASK_DUE_SOON notification', () => {

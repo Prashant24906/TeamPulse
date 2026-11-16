@@ -2,6 +2,7 @@ import sql from '../config/database';
 import type { TaskDeadlineJobData, NotificationType } from '../jobs/jobs/taskDeadline.job';
 import { createPubSubConnection } from '../config/redis';
 import * as teamRepo from '../repositories/team.repository';
+import * as projectRepo from '../repositories/project.repository';
 
 // ---------------------------------------------------------------------------
 // notification.service.ts
@@ -9,13 +10,14 @@ import * as teamRepo from '../repositories/team.repository';
 // Responsibilities:
 //   - Persist notifications written by the worker process (deadline jobs)
 //   - Persist TASK_ASSIGNED notifications directly from the HTTP process
-//   - Persist TEAM_MESSAGE notifications directly from the HTTP process
+//   - Persist PROJECT_JOIN_REQUEST and TEAM_JOIN_REQUEST notifications directly from the HTTP process
+//   - Dispatch transient TEAM_MESSAGE notifications directly from the HTTP process
 //   - Query, count, and mark notifications for the REST API
 //   - Check task status so TASK_OVERDUE is skipped for completed/closed tasks
 //
 // Real-time delivery:
 //   Deadline notifications: worker persists → Redis publish → HTTP subscriber → emitToUser
-//   Assignment & Message notifications: HTTP process persists + publishes → Redis subscriber → emitToUser
+//   Assignment, Join Request & Message notifications: HTTP process persists + publishes → Redis subscriber → emitToUser
 // ---------------------------------------------------------------------------
 
 const NOTIFICATION_CHANNEL = 'notifications:push';
@@ -27,6 +29,7 @@ export interface Notification {
   team_id?: string | null;
   project_id?: string | null;
   message_id?: string | null;
+  join_request_id?: string | null;
   type: NotificationType;
   message: string;
   job_id: string;
@@ -47,11 +50,13 @@ export async function persistNotification(
   type: NotificationType,
   message: string,
   teamId?: string | null,
-  messageId?: string | null
+  messageId?: string | null,
+  projectId?: string | null,
+  joinRequestId?: string | null
 ): Promise<Notification | null> {
   const rows = await sql<Notification[]>`
-    INSERT INTO notifications (job_id, user_id, task_id, team_id, message_id, type, message)
-    VALUES (${jobId}, ${userId}, ${taskId}, ${teamId ?? null}, ${messageId ?? null}, ${type}, ${message})
+    INSERT INTO notifications (job_id, user_id, task_id, team_id, message_id, project_id, join_request_id, type, message)
+    VALUES (${jobId}, ${userId}, ${taskId}, ${teamId ?? null}, ${messageId ?? null}, ${projectId ?? null}, ${joinRequestId ?? null}, ${type}, ${message})
     ON CONFLICT (job_id, user_id) DO NOTHING
     RETURNING *
   `;
@@ -88,7 +93,16 @@ export async function notifyTaskAssigned(
 ): Promise<void> {
   const message = `${assignerName} assigned you a task: ${taskName}`;
 
-  const notification = await persistNotification(jobId, assignedTo, taskId, 'TASK_ASSIGNED', message);
+  const notification = await persistNotification(
+    jobId,
+    assignedTo,
+    taskId,
+    'TASK_ASSIGNED',
+    message,
+    teamId,
+    null,
+    projectId
+  );
 
   if (!notification) {
     // Duplicate — idempotency guard already prevented a double insert
@@ -225,6 +239,225 @@ export async function notifyTeamMessage(
   }
 }
 
+// ---------------------------------------------------------------------------
+// PROJECT_JOIN_REQUEST — persistent & real-time notification to project OWNER/ADMIN
+// ---------------------------------------------------------------------------
+
+/**
+ * Notify project OWNER and ADMIN members of a new project join request.
+ *
+ * @param requestId     Join request UUID
+ * @param projectId     Target project UUID
+ * @param projectName   Name of the project
+ * @param requesterId   User ID of requester (excluded from notifications)
+ * @param requesterName Display name of requester
+ * @param eventKey      Timestamp or version key for idempotency (e.g. updated_at timestamp)
+ */
+export async function notifyProjectJoinRequest(
+  requestId: string,
+  projectId: string,
+  projectName: string,
+  requesterId: string,
+  requesterName: string,
+  eventKey?: number | string
+): Promise<void> {
+  // 1. Resolve recipients: project members with role OWNER or ADMIN, strictly excluding requester
+  const members = await projectRepo.findMembersByProject(projectId);
+  const recipients = members.filter(
+    (m) => (m.role === 'OWNER' || m.role === 'ADMIN') && m.user_id !== requesterId
+  );
+  if (recipients.length === 0) return;
+
+  // 2. Build message: e.g. "Alex requested to join Project TeamPulse."
+  const targetName = projectName.toLowerCase().startsWith('project ')
+    ? projectName
+    : `Project ${projectName}`;
+  const message = `${requesterName} requested to join ${targetName}.`;
+
+  // 3. Formulate stable idempotency key for this request event
+  const stamp = eventKey ?? 'req';
+  const jobId = `pjr_${requestId}_${stamp}`;
+
+  // 4. Connect Redis publisher for real-time delivery
+  let publisher: ReturnType<typeof createPubSubConnection> | null = null;
+  try {
+    publisher = createPubSubConnection();
+  } catch (err) {
+    console.error('[notification] Redis connection failed for PROJECT_JOIN_REQUEST (non-fatal):', (err as Error).message);
+  }
+
+  try {
+    for (const recipient of recipients) {
+      try {
+        const notification = await persistNotification(
+          jobId,
+          recipient.user_id,
+          null,
+          'PROJECT_JOIN_REQUEST',
+          message,
+          null,
+          null,
+          projectId,
+          requestId
+        );
+
+        if (!notification) {
+          // Idempotency: duplicate notification already exists for this (job_id, user_id)
+          continue;
+        }
+
+        if (publisher) {
+          try {
+            await publisher.publish(
+              NOTIFICATION_CHANNEL,
+              JSON.stringify({
+                userId: recipient.user_id,
+                notification: {
+                  ...notification,
+                  project_id: projectId,
+                  join_request_id: requestId,
+                },
+              })
+            );
+          } catch (pubErr) {
+            console.error(
+              `[notification] Redis publish failed for project join request to ${recipient.user_id} (non-fatal):`,
+              (pubErr as Error).message
+            );
+          }
+        }
+      } catch (recipErr) {
+        console.error(
+          `[notification] Failed to persist/deliver project join request for ${recipient.user_id} (non-fatal):`,
+          (recipErr as Error).message
+        );
+      }
+    }
+  } finally {
+    if (publisher) {
+      try {
+        await publisher.quit();
+      } catch {
+        // silent
+      }
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// TEAM_JOIN_REQUEST — persistent & real-time notification to team OWNER/ADMIN
+// ---------------------------------------------------------------------------
+
+/**
+ * Notify team OWNER and ADMIN members of a new team join request.
+ *
+ * @param requestId     Join request UUID
+ * @param teamId        Target team UUID
+ * @param teamName      Name of the team
+ * @param requesterId   User ID of requester (excluded from notifications)
+ * @param requesterName Display name of requester
+ * @param projectId     Optional project UUID for navigation context
+ * @param eventKey      Timestamp or version key for idempotency
+ */
+export async function notifyTeamJoinRequest(
+  requestId: string,
+  teamId: string,
+  teamName: string,
+  requesterId: string,
+  requesterName: string,
+  projectId?: string,
+  eventKey?: number | string
+): Promise<void> {
+  // 1. Resolve recipients: team members with role OWNER or ADMIN, strictly excluding requester
+  const members = await teamRepo.getMembers(teamId);
+  const recipients = members.filter(
+    (m) => (m.role === 'OWNER' || m.role === 'ADMIN') && m.user_id !== requesterId
+  );
+  if (recipients.length === 0) return;
+
+  // Resolve projectId if not provided
+  let resolvedProjectId = projectId;
+  if (!resolvedProjectId) {
+    const team = await teamRepo.findTeamById(teamId);
+    if (team) {
+      resolvedProjectId = team.project_id;
+    }
+  }
+
+  // 2. Build message: e.g. "Alex requested to join Backend Development."
+  const message = `${requesterName} requested to join ${teamName}.`;
+
+  // 3. Formulate stable idempotency key for this request event
+  const stamp = eventKey ?? 'req';
+  const jobId = `tjr_${requestId}_${stamp}`;
+
+  // 4. Connect Redis publisher for real-time delivery
+  let publisher: ReturnType<typeof createPubSubConnection> | null = null;
+  try {
+    publisher = createPubSubConnection();
+  } catch (err) {
+    console.error('[notification] Redis connection failed for TEAM_JOIN_REQUEST (non-fatal):', (err as Error).message);
+  }
+
+  try {
+    for (const recipient of recipients) {
+      try {
+        const notification = await persistNotification(
+          jobId,
+          recipient.user_id,
+          null,
+          'TEAM_JOIN_REQUEST',
+          message,
+          teamId,
+          null,
+          resolvedProjectId,
+          requestId
+        );
+
+        if (!notification) {
+          // Idempotency: duplicate notification already exists for this (job_id, user_id)
+          continue;
+        }
+
+        if (publisher) {
+          try {
+            await publisher.publish(
+              NOTIFICATION_CHANNEL,
+              JSON.stringify({
+                userId: recipient.user_id,
+                notification: {
+                  ...notification,
+                  team_id: teamId,
+                  project_id: resolvedProjectId ?? null,
+                  join_request_id: requestId,
+                },
+              })
+            );
+          } catch (pubErr) {
+            console.error(
+              `[notification] Redis publish failed for team join request to ${recipient.user_id} (non-fatal):`,
+              (pubErr as Error).message
+            );
+          }
+        }
+      } catch (recipErr) {
+        console.error(
+          `[notification] Failed to persist/deliver team join request for ${recipient.user_id} (non-fatal):`,
+          (recipErr as Error).message
+        );
+      }
+    }
+  } finally {
+    if (publisher) {
+      try {
+        await publisher.quit();
+      } catch {
+        // silent
+      }
+    }
+  }
+}
+
 /**
  * Build recipient list for a task deadline job.
  * Notifies: assigned_to user (if set), otherwise the task creator.
@@ -267,13 +500,15 @@ export async function getNotificationsByUser(
       n.task_id, 
       n.team_id AS direct_team_id,
       n.message_id,
+      n.project_id AS direct_project_id,
+      n.join_request_id,
       n.type, 
       n.message, 
       n.job_id, 
       n.is_read, 
       n.created_at,
       COALESCE(n.team_id, t.team_id) AS team_id,
-      COALESCE(tm.project_id, direct_team.project_id) AS project_id
+      COALESCE(n.project_id, tm.project_id, direct_team.project_id) AS project_id
     FROM notifications n
     LEFT JOIN tasks t ON t.id = n.task_id
     LEFT JOIN teams tm ON tm.id = t.team_id
@@ -309,7 +544,7 @@ export async function markNotificationAsRead(
       UPDATE notifications
       SET is_read = TRUE
       WHERE id = ${notificationId} AND user_id = ${userId}
-      RETURNING id, user_id, task_id, team_id, message_id, type, message, job_id, is_read, created_at
+      RETURNING id, user_id, task_id, team_id, message_id, project_id, join_request_id, type, message, job_id, is_read, created_at
     )
     SELECT 
       u.id, 
@@ -321,8 +556,9 @@ export async function markNotificationAsRead(
       u.is_read, 
       u.created_at,
       u.message_id,
+      u.join_request_id,
       COALESCE(u.team_id, t.team_id) AS team_id,
-      COALESCE(tm.project_id, direct_team.project_id) AS project_id
+      COALESCE(u.project_id, tm.project_id, direct_team.project_id) AS project_id
     FROM updated u
     LEFT JOIN tasks t ON t.id = u.task_id
     LEFT JOIN teams tm ON tm.id = t.team_id

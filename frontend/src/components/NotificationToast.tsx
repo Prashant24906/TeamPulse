@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { MessageSquare, UserCheck, Clock, AlertCircle, X } from 'lucide-react';
+import { MessageSquare, UserCheck, Clock, AlertCircle, UserPlus, X } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useMarkNotificationRead } from '@/hooks/useNotifications';
 import { getSocket } from '@/lib/socket';
@@ -22,7 +22,7 @@ export interface ToastItem {
   title: string;
   subtitle: string;
   preview?: string;
-  iconType: 'TEAM_MESSAGE' | 'TASK_ASSIGNED' | 'TASK_DUE_SOON' | 'TASK_OVERDUE';
+  iconType: 'TEAM_MESSAGE' | 'TASK_ASSIGNED' | 'TASK_DUE_SOON' | 'TASK_OVERDUE' | 'PROJECT_JOIN_REQUEST' | 'TEAM_JOIN_REQUEST';
   isExiting: boolean;
 }
 
@@ -88,6 +88,44 @@ export function parseToastDetails(notification: Notification) {
     };
   }
 
+  if (type === 'PROJECT_JOIN_REQUEST') {
+    // Expected format: "Alex requested to join Project TeamPulse."
+    const match = message.match(/^(.*?)\s+requested to join\s+(.*?)(\.)?$/);
+    if (match) {
+      const requester = match[1];
+      const target = match[2];
+      return {
+        title: requester,
+        subtitle: `Requested to join ${target}`,
+        iconType: 'PROJECT_JOIN_REQUEST' as const,
+      };
+    }
+    return {
+      title: 'Project Join Request',
+      subtitle: message,
+      iconType: 'PROJECT_JOIN_REQUEST' as const,
+    };
+  }
+
+  if (type === 'TEAM_JOIN_REQUEST') {
+    // Expected format: "Alex requested to join Backend Development."
+    const match = message.match(/^(.*?)\s+requested to join\s+(.*?)(\.)?$/);
+    if (match) {
+      const requester = match[1];
+      const target = match[2];
+      return {
+        title: requester,
+        subtitle: `Requested to join ${target}`,
+        iconType: 'TEAM_JOIN_REQUEST' as const,
+      };
+    }
+    return {
+      title: 'Team Join Request',
+      subtitle: message,
+      iconType: 'TEAM_JOIN_REQUEST' as const,
+    };
+  }
+
   if (type === 'TASK_OVERDUE') {
     return {
       title: 'Task Overdue',
@@ -137,6 +175,18 @@ function ToastCard({
         return (
           <div className="h-8 w-8 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 flex-shrink-0">
             <UserCheck size={14} />
+          </div>
+        );
+      case 'PROJECT_JOIN_REQUEST':
+        return (
+          <div className="h-8 w-8 rounded-full bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-600 flex-shrink-0">
+            <UserPlus size={14} />
+          </div>
+        );
+      case 'TEAM_JOIN_REQUEST':
+        return (
+          <div className="h-8 w-8 rounded-full bg-sky-50 border border-sky-100 flex items-center justify-center text-sky-600 flex-shrink-0">
+            <UserPlus size={14} />
           </div>
         );
       case 'TASK_OVERDUE':
@@ -312,8 +362,14 @@ export function NotificationToastProvider({ children }: { children: React.ReactN
       dismissToast(toast.id);
 
       const notif = toast.notification;
-      if (notif.project_id && notif.team_id) {
+      if (notif.type === 'PROJECT_JOIN_REQUEST' && notif.project_id) {
+        router.push(`/projects/${notif.project_id}?tab=requests`);
+      } else if (notif.type === 'TEAM_JOIN_REQUEST' && notif.project_id && notif.team_id) {
+        router.push(`/projects/${notif.project_id}/teams/${notif.team_id}?tab=requests`);
+      } else if (notif.project_id && notif.team_id) {
         router.push(`/projects/${notif.project_id}/teams/${notif.team_id}`);
+      } else if (notif.project_id) {
+        router.push(`/projects/${notif.project_id}`);
       }
     },
     [markRead, dismissToast, router]

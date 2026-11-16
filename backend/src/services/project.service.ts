@@ -7,6 +7,7 @@ import { cacheGet, cacheSet, cacheInvalidate, CacheKeys } from '../utils/cache';
 import { emitToTeam } from '../websocket/emit';
 import { WS_EVENTS } from '../websocket/events';
 import { evictUserFromTeamRooms } from '../websocket/rooms';
+import * as notificationService from './notification.service';
 
 // ---------------------------------------------------------------------------
 // Helper — resolve project and caller's project-level role
@@ -245,7 +246,25 @@ export async function createJoinRequest(projectId: string, userId: string) {
   const existing = await projectRepo.findMemberRole(projectId, userId);
   if (existing) throw new AppError(409, 'You are already a member of this project');
 
-  return projectRepo.createJoinRequest(projectId, userId);
+  const request = await projectRepo.createJoinRequest(projectId, userId);
+
+  // Notify project OWNER and ADMIN members (best-effort, non-blocking)
+  try {
+    const requesterName = request.name || 'A user';
+    const eventKey = new Date(request.updated_at || request.created_at || Date.now()).getTime();
+    await notificationService.notifyProjectJoinRequest(
+      request.id,
+      projectId,
+      project.name,
+      userId,
+      requesterName,
+      eventKey
+    );
+  } catch (err) {
+    console.error('[project.service] Failed to send project join request notification (non-fatal):', (err as Error).message);
+  }
+
+  return request;
 }
 
 export async function getJoinRequests(projectId: string, callerId: string) {
