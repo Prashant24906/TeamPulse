@@ -21,6 +21,9 @@ function resolveWsUrl(): string {
 export function getSocket(): Socket {
   if (!socket) {
     const wsUrl = resolveWsUrl();
+    if (typeof window !== 'undefined') {
+      console.log('[socket] Initializing Socket.IO client instance for target:', wsUrl);
+    }
     socket = io(wsUrl, {
       transports: ['websocket', 'polling'], // Prioritize WebSocket to prevent Railway session stickiness loss
       withCredentials: true,                // sends HttpOnly cookie on WS handshake if available
@@ -35,6 +38,19 @@ export function getSocket(): Socket {
       },
     });
 
+    // Diagnostic event listeners
+    socket.on('connect', () => {
+      console.log('[socket] connect event fired. Socket ID:', socket?.id, '| connected:', socket?.connected);
+    });
+
+    socket.on('connect_error', (err) => {
+      console.error('[socket] connect_error event fired:', err.message);
+    });
+
+    socket.on('disconnect', (reason) => {
+      console.warn('[socket] disconnect event fired. Reason:', reason);
+    });
+
     const token = getStoredToken();
     if (token) {
       socket.auth = { token };
@@ -44,13 +60,16 @@ export function getSocket(): Socket {
 }
 
 export function connectSocket(): void {
+  console.log('[socket] connectSocket() invoked.');
   const token = getStoredToken();
+  console.log('[socket] Token retrieval in connectSocket(): token present =', !!token);
   if (!token) {
-    // Prevent unauthenticated connections that trigger HTTP 400 handshake errors
+    console.warn('[socket] connectSocket() aborted: No auth token found in storage.');
     return;
   }
   const s = getSocket();
   s.auth = { token };
+  console.log('[socket] Socket connection attempt to:', resolveWsUrl(), '| currently connected =', s.connected);
   if (!s.connected) {
     s.connect();
   }
@@ -58,6 +77,7 @@ export function connectSocket(): void {
 
 export function disconnectSocket(): void {
   if (socket) {
+    console.log('[socket] disconnectSocket() invoked.');
     socket.disconnect();
     socket = null;
   }

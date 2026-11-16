@@ -13,7 +13,14 @@ const TOKEN_KEY = 'teampulse_token';
 
 export function getStoredToken(): string | null {
   if (typeof window === 'undefined') return null;
-  return localStorage.getItem('token') || localStorage.getItem(TOKEN_KEY);
+  return (
+    localStorage.getItem('token') ||
+    localStorage.getItem(TOKEN_KEY) ||
+    localStorage.getItem('jwt') ||
+    localStorage.getItem('auth_token') ||
+    localStorage.getItem('access_token') ||
+    localStorage.getItem('accessToken')
+  );
 }
 
 export function setStoredToken(token: string): void {
@@ -26,6 +33,10 @@ export function clearStoredToken(): void {
   if (typeof window === 'undefined') return;
   localStorage.removeItem('token');
   localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem('jwt');
+  localStorage.removeItem('auth_token');
+  localStorage.removeItem('access_token');
+  localStorage.removeItem('accessToken');
 }
 
 const api = axios.create({

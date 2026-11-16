@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { connectSocket, getSocket } from '@/lib/socket';
 import { getStoredToken } from '@/lib/api';
+import { useAuth } from '@/hooks/useAuth';
 import type { TeamMessage, ProjectMessage } from '@/types/message';
 import type { Team } from '@/types/team';
 import type { User } from '@/types/user';
@@ -25,6 +26,7 @@ export function useSocket() {
   const qc = useQueryClient();
   const router   = useRouter();
   const pathname = usePathname();
+  const { data: user, isLoading: isAuthLoading } = useAuth();
 
   const pathnameRef = useRef(pathname);
   const routerRef   = useRef(router);
@@ -38,8 +40,13 @@ export function useSocket() {
   }, [router]);
 
   useEffect(() => {
+    console.log('[useSocket] Hook effect triggered. Auth loading:', isAuthLoading, '| User logged in:', !!user);
     const token = getStoredToken();
-    if (!token) return;
+    console.log('[useSocket] Token retrieval: token exists =', !!token);
+    if (!token) {
+      console.warn('[useSocket] No auth token available in storage. Socket connection deferred.');
+      return;
+    }
 
     connectSocket();
     const socket = getSocket();
@@ -353,5 +360,5 @@ export function useSocket() {
       socket.off('project.message.deleted', onProjectMessageDeleted);
       socket.off('notification.received', onNotificationReceived);
     };
-  }, [qc]);
+  }, [qc, user, isAuthLoading]);
 }

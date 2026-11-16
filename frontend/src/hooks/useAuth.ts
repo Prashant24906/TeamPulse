@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api, { setStoredToken, clearStoredToken, getStoredToken } from '@/lib/api';
-import { disconnectSocket } from '@/lib/socket';
+import { connectSocket, disconnectSocket } from '@/lib/socket';
 import type { User } from '@/types/user';
 
 interface AuthResponse {
@@ -43,6 +43,7 @@ export function useLogin() {
     },
     onSuccess: (user) => {
       queryClient.setQueryData(['me'], user);
+      connectSocket();
     },
   });
 }
@@ -88,6 +89,7 @@ export function useUpdateProfile() {
     },
     onSuccess: (user) => {
       queryClient.setQueryData(['me'], user);
+      connectSocket();
     },
   });
 }

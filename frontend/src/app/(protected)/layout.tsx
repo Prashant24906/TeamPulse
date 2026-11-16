@@ -88,6 +88,10 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
   useSocket();
 
   useEffect(() => {
+    console.log('[ProtectedLayout] Layout mounted. Auth state — isLoading:', isLoading, '| isError:', isError, '| user exists:', !!user);
+  }, [isLoading, isError, user]);
+
+  useEffect(() => {
     if (!isLoading && (isError || !user)) {
       router.replace('/login');
     }
