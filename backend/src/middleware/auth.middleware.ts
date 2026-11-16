@@ -11,6 +11,7 @@ declare global {
   namespace Express {
     interface Request {
       user?: { userId: string };
+      token?: string;
     }
   }
 }
@@ -70,6 +71,7 @@ export function authenticate(
   try {
     const payload = jwt.verify(token, env.JWT_SECRET) as JwtPayload;
     req.user = { userId: payload.userId };
+    req.token = token;
     next();
   } catch (err) {
     if (err instanceof jwt.TokenExpiredError) {

@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { MessageSquare, UserCheck, Clock, AlertCircle, UserPlus, X } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useMarkNotificationRead } from '@/hooks/useNotifications';
-import { connectSocket, getSocket } from '@/lib/socket';
 import type { Notification } from '@/types/notification';
 
 // ---------------------------------------------------------------------------
@@ -388,18 +387,9 @@ export function NotificationToastProvider({ children }: { children: React.ReactN
     [markRead, dismissToast, router]
   );
 
-  // Listen for real-time notification.received on Socket.IO and window custom event
+  // Listen for real-time notifications dispatched via window custom event from useSocket
   useEffect(() => {
     if (!currentUser) return;
-
-    connectSocket();
-    const socket = getSocket();
-
-    const handleNotificationReceived = (notification: Notification) => {
-      if (notification) {
-        showToast(notification);
-      }
-    };
 
     const handleCustomNotification = (event: Event) => {
       const customEvent = event as CustomEvent<Notification>;
@@ -408,14 +398,11 @@ export function NotificationToastProvider({ children }: { children: React.ReactN
       }
     };
 
-    socket.on('notification.received', handleNotificationReceived);
-
     if (typeof window !== 'undefined') {
       window.addEventListener('teamflow:notification', handleCustomNotification);
     }
 
     return () => {
-      socket.off('notification.received', handleNotificationReceived);
       if (typeof window !== 'undefined') {
         window.removeEventListener('teamflow:notification', handleCustomNotification);
       }

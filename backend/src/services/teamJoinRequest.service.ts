@@ -91,13 +91,25 @@ export async function createJoinRequest(userId: string, teamId: string, projectI
 
 export async function getJoinRequests(callerId: string, teamId: string, projectId?: string) {
   if (projectId) await assertTeamBelongsToProject(teamId, projectId);
+
   const role = await teamRepo.findMemberRole(teamId, callerId);
-  if (!role) throw new AppError(403, 'You are not a member of this team');
-  if (!hasRole(role, 'ADMIN')) {
-    throw new AppError(403, 'Only OWNER or ADMIN can view join requests');
+  if (role && hasRole(role, 'ADMIN')) {
+    return joinRepo.getJoinRequests(teamId);
   }
 
-  return joinRepo.getJoinRequests(teamId);
+  // Fallback: project OWNER or ADMIN
+  const team = await teamRepo.findTeamById(teamId);
+  if (!team) throw new AppError(404, 'Team not found');
+
+  const projectRole = await projectRepo.findMemberRole(team.project_id, callerId);
+  if (projectRole === 'OWNER' || projectRole === 'ADMIN') {
+    return joinRepo.getJoinRequests(teamId);
+  }
+
+  if (!role && !projectRole) {
+    throw new AppError(403, 'You are not a member of this team');
+  }
+  throw new AppError(403, 'Only OWNER or ADMIN can view join requests');
 }
 
 // ---------------------------------------------------------------------------
@@ -112,11 +124,26 @@ export async function updateJoinRequest(
   projectId?: string
 ) {
   if (projectId) await assertTeamBelongsToProject(teamId, projectId);
-  // 1. Caller must be OWNER or ADMIN
+
+  // 1. Caller must be OWNER or ADMIN of team or parent project
   const callerRole = await teamRepo.findMemberRole(teamId, callerId);
-  if (!callerRole) throw new AppError(403, 'You are not a member of this team');
-  if (!hasRole(callerRole, 'ADMIN')) {
-    throw new AppError(403, 'Only OWNER or ADMIN can approve or reject join requests');
+  const isTeamAdmin = callerRole && hasRole(callerRole, 'ADMIN');
+
+  let team: Awaited<ReturnType<typeof teamRepo.findTeamById>> | null = null;
+
+  if (!isTeamAdmin) {
+    team = await teamRepo.findTeamById(teamId);
+    if (!team) throw new AppError(404, 'Team not found');
+
+    const projectRole = await projectRepo.findMemberRole(team.project_id, callerId);
+    const isProjectAdmin = projectRole === 'OWNER' || projectRole === 'ADMIN';
+
+    if (!isProjectAdmin) {
+      if (!callerRole && !projectRole) {
+        throw new AppError(403, 'You are not a member of this team');
+      }
+      throw new AppError(403, 'Only OWNER or ADMIN can approve or reject join requests');
+    }
   }
 
   // 2. Request must exist and belong to this team (checked again inside repo transaction)
@@ -129,10 +156,12 @@ export async function updateJoinRequest(
 
   if (input.status === 'APPROVED') {
     // Verify the requester is a member of the team's parent project before approving
-    const team = await teamRepo.findTeamById(teamId);
-    if (!team) throw new AppError(404, 'Team not found');
-    const projectRole = await projectRepo.findMemberRole(team.project_id, existingReq.user_id);
-    if (!projectRole) {
+    if (!team) {
+      team = await teamRepo.findTeamById(teamId);
+      if (!team) throw new AppError(404, 'Team not found');
+    }
+    const requesterProjectRole = await projectRepo.findMemberRole(team.project_id, existingReq.user_id);
+    if (!requesterProjectRole) {
       throw new AppError(403, 'User is not a member of the project this team belongs to');
     }
 

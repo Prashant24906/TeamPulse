@@ -7,6 +7,7 @@ import {
   useTeam, useTeamMembers, useUpdateTeam, useRemoveMember,
   useUpdateMemberRole, useAddMember, useLeaveTeam,
 } from '@/hooks/useTeams';
+import { useProject } from '@/hooks/useProjects';
 import { useAuth } from '@/hooks/useAuth';
 import {
   useTasks, useClosedTasks, useCreateTask, useUpdateTask,
@@ -198,11 +199,19 @@ export default function TeamDetailPage({ params }: { params: Promise<{ projectId
   const router = useRouter();
   const { data: currentUser } = useAuth();
 
+  const { data: project } = useProject(projectId);
   const { data: team, isLoading: teamLoading } = useTeam(teamId);
   const { data: members, isLoading: membersLoading } = useTeamMembers(teamId);
   const { data: tasks, isLoading: tasksLoading } = useTasks(projectId, teamId);
   const { data: closedTasks, isLoading: closedTasksLoading } = useClosedTasks(projectId, teamId);
-  const { data: joinRequests } = useJoinRequests(teamId);
+
+  const myRole = team?.role ?? null;
+  const isProjectAdmin = project?.role === 'OWNER' || project?.role === 'ADMIN';
+  const isTeamAdmin = myRole === 'OWNER' || myRole === 'ADMIN';
+  const isOwnerOrAdmin = isTeamAdmin || isProjectAdmin;
+  const isMember = myRole !== null;
+
+  const { data: joinRequests } = useJoinRequests(isOwnerOrAdmin ? teamId : '');
 
   const leaveTeam = useLeaveTeam(teamId);
   const deleteTask = useDeleteTask(teamId);
@@ -224,15 +233,15 @@ export default function TeamDetailPage({ params }: { params: Promise<{ projectId
 
   useEffect(() => {
     const tab = searchParams.get('tab');
+    if (tab === 'requests' && !isOwnerOrAdmin) {
+      setActiveTab('board');
+      return;
+    }
     if (tab === 'requests' || tab === 'closed' || tab === 'members' || tab === 'chat' || tab === 'board') {
       setActiveTab(tab);
     }
-  }, [searchParams]);
+  }, [searchParams, isOwnerOrAdmin]);
   const [mobileStatusFilter, setMobileStatusFilter] = useState<'ALL' | TaskStatus>('ALL');
-
-  const myRole = team?.role ?? null;
-  const isOwnerOrAdmin = myRole === 'OWNER' || myRole === 'ADMIN';
-  const isMember = myRole !== null;
 
   const createJoinReq = useCreateTeamJoinRequest(projectId, teamId);
 
@@ -328,7 +337,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ projectId
   const byStatus = (status: TaskStatus) => (tasks ?? []).filter((t) => t.status === status);
 
   return (
-    <div className="flex flex-col flex-1 h-full min-h-0">
+    <div className="flex flex-col h-full">
       {/* ── Header ─────────────────────────────────────────────────── */}
       <div className="px-4 sm:px-8 pt-4 sm:pt-6 pb-3 sm:pb-4 border-b border-gray-200 bg-white flex-shrink-0">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
@@ -368,21 +377,26 @@ export default function TeamDetailPage({ params }: { params: Promise<{ projectId
         {/* ── Tabs & Actions ── */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-3">
           <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar flex-nowrap flex-1">
-            {(['board', 'closed', 'members', 'requests', 'chat'] as const).map((tab) => (
+            {([
+              'board',
+              'closed',
+              'members',
+              ...(isOwnerOrAdmin ? ['requests' as const] : []),
+              'chat',
+            ] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-semibold capitalize whitespace-nowrap transition flex-shrink-0 ${
-                  activeTab === tab
-                    ? 'bg-emerald-600 text-white shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                }`}
+                className={`px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-semibold capitalize whitespace-nowrap transition flex-shrink-0 ${activeTab === tab
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                  }`}
               >
                 {tab === 'requests'
                   ? `Requests${joinRequests?.length ? ` (${joinRequests.length})` : ''}`
                   : tab === 'closed'
-                  ? `Closed${closedTasks?.length ? ` (${closedTasks.length})` : ''}`
-                  : tab.charAt(0).toUpperCase() + tab.slice(1)}
+                    ? `Closed${closedTasks?.length ? ` (${closedTasks.length})` : ''}`
+                    : tab.charAt(0).toUpperCase() + tab.slice(1)}
               </button>
             ))}
           </div>
@@ -408,11 +422,10 @@ export default function TeamDetailPage({ params }: { params: Promise<{ projectId
             <div className="md:hidden flex items-center gap-1.5 px-4 pt-3 pb-1 overflow-x-auto no-scrollbar">
               <button
                 onClick={() => setMobileStatusFilter('ALL')}
-                className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition ${
-                  mobileStatusFilter === 'ALL'
-                    ? 'bg-gray-900 text-white shadow-sm'
-                    : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-                }`}
+                className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition ${mobileStatusFilter === 'ALL'
+                  ? 'bg-gray-900 text-white shadow-sm'
+                  : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+                  }`}
               >
                 All ({(tasks ?? []).length})
               </button>
@@ -423,11 +436,10 @@ export default function TeamDetailPage({ params }: { params: Promise<{ projectId
                   <button
                     key={col.status}
                     onClick={() => setMobileStatusFilter(col.status)}
-                    className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition ${
-                      isSelected
-                        ? 'bg-emerald-600 text-white shadow-sm'
-                        : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-                    }`}
+                    className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition ${isSelected
+                      ? 'bg-emerald-600 text-white shadow-sm'
+                      : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+                      }`}
                   >
                     {col.label} ({count})
                   </button>

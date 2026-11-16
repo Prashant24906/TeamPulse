@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import api, { setStoredToken, clearStoredToken } from '@/lib/api';
+import api, { setStoredToken, clearStoredToken, getStoredToken } from '@/lib/api';
 import { disconnectSocket } from '@/lib/socket';
 import type { User } from '@/types/user';
 
@@ -19,6 +19,10 @@ export function useAuth() {
     queryKey: ['me'],
     queryFn: async () => {
       const res = await api.get<AuthResponse>('/auth/me');
+      const token = res.data.data?.token || res.data.token;
+      if (token && !getStoredToken()) {
+        setStoredToken(token);
+      }
       return res.data.data.user;
     },
     retry: false,

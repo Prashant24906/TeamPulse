@@ -2,6 +2,7 @@ import { Server as HttpServer } from 'http';
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import { env } from '../config/env';
+import { createCorsOriginValidator } from '../config/cors';
 import * as teamRepo from '../repositories/team.repository';
 
 // ---------------------------------------------------------------------------
@@ -50,18 +51,21 @@ export function userRoom(userId: string): string {
 export function initSocket(httpServer: HttpServer): SocketIOServer {
   io = new SocketIOServer(httpServer, {
     cors: {
-      origin: env.CORS_ORIGIN,
+      origin: createCorsOriginValidator(env.CORS_ORIGIN),
       methods: ['GET', 'POST'],
       credentials: true,
     },
+    transports: ['websocket', 'polling'],
   });
 
   // -------------------------------------------------------------------------
   // Authentication middleware — runs before the socket is established.
   //
   // Token resolution priority:
-  //   1. HttpOnly cookie 'token' from the handshake headers (browser clients)
-  //   2. socket.handshake.auth.token (non-browser / Postman / mobile)
+  //   1. HttpOnly cookie 'token' from handshake headers
+  //   2. Explicit socket.handshake.auth.token (Bearer prefix stripped if present)
+  //   3. socket.handshake.headers.authorization (Bearer prefix stripped if present)
+  //   4. socket.handshake.query.token (query parameter fallback)
   // -------------------------------------------------------------------------
 
   io.use((socket, next) => {
@@ -73,14 +77,36 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
       .find((c) => c.startsWith('token='))
       ?.slice('token='.length);
 
-    // 2. Fall back to explicit auth.token
-    const token = cookieToken ?? (socket.handshake.auth?.token as string | undefined);
+    // 2. Explicit socket.handshake.auth.token
+    let explicitToken = socket.handshake.auth?.token as string | undefined;
+    if (explicitToken?.startsWith('Bearer ')) {
+      explicitToken = explicitToken.slice(7).trim();
+    }
+
+    // 3. Authorization header
+    const authHeader = socket.handshake.headers?.authorization;
+    let headerToken: string | undefined;
+    if (authHeader?.startsWith('Bearer ')) {
+      headerToken = authHeader.slice(7).trim();
+    } else if (authHeader) {
+      headerToken = authHeader.trim();
+    }
+
+    // 4. Query token fallback
+    let queryToken = socket.handshake.query?.token as string | undefined;
+    if (queryToken?.startsWith('Bearer ')) {
+      queryToken = queryToken.slice(7).trim();
+    }
+
+    const token = cookieToken || explicitToken || headerToken || queryToken;
 
     if (!token) {
+      console.warn(`[ws] Connection rejected: No auth token provided (socketId=${socket.id})`);
       return next(new Error('Authentication required'));
     }
 
     if (!env.JWT_SECRET) {
+      console.error('[ws] Connection rejected: JWT_SECRET not configured');
       return next(new Error('Server misconfiguration'));
     }
 
@@ -88,7 +114,8 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
       const payload = jwt.verify(token, env.JWT_SECRET) as JwtPayload;
       (socket as AuthenticatedSocket).user = { userId: payload.userId };
       next();
-    } catch {
+    } catch (err) {
+      console.warn(`[ws] Connection rejected: Invalid JWT token (${(err as Error).message}) (socketId=${socket.id})`);
       next(new Error('Invalid or expired token'));
     }
   });
