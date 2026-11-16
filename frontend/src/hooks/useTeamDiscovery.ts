@@ -68,14 +68,14 @@ export function useCreateTeamJoinRequest(projectId: string, teamId: string) {
 // useJoinRequests — admin/owner: list pending requests for a team
 // ---------------------------------------------------------------------------
 
-export function useJoinRequests(teamId: string) {
+export function useJoinRequests(teamId: string, enabled = true) {
   return useQuery<JoinRequest[]>({
     queryKey: ['join-requests', teamId],
     queryFn: async () => {
       const res = await api.get<JoinRequestsResponse>(`/teams/${teamId}/join-requests`);
       return res.data.data.requests;
     },
-    enabled: !!teamId,
+    enabled: !!teamId && enabled,
   });
 }
 

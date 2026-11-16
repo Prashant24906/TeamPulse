@@ -3,7 +3,8 @@
 import { useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
-import { connectSocket, disconnectSocket, getSocket } from '@/lib/socket';
+import { connectSocket, getSocket } from '@/lib/socket';
+import { getStoredToken } from '@/lib/api';
 import type { TeamMessage } from '@/types/message';
 import type { Team } from '@/types/team';
 import type { User } from '@/types/user';
@@ -37,6 +38,9 @@ export function useSocket() {
   }, [router]);
 
   useEffect(() => {
+    const token = getStoredToken();
+    if (!token) return;
+
     connectSocket();
     const socket = getSocket();
 
@@ -295,7 +299,6 @@ export function useSocket() {
       socket.off('team.deleted', onTeamDeleted);
       socket.off('message.created', onMessageCreated);
       socket.off('notification.received', onNotificationReceived);
-      disconnectSocket();
     };
   }, [qc]);
 }

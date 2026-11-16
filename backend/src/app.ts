@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import { env } from './config/env';
+import { createCorsOriginValidator } from './config/cors';
 import { sql } from './config/database';
 import { notFoundHandler, errorHandler } from './middleware/error.middleware';
 import authRouter    from './routes/auth.routes';
@@ -25,7 +26,7 @@ app.use(helmet());
 // ---------------------------------------------------------------------------
 app.use(
   cors({
-    origin:           env.CORS_ORIGIN,
+    origin:           createCorsOriginValidator(env.CORS_ORIGIN),
     methods:          ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders:   ['Content-Type', 'Authorization'],
     exposedHeaders:   ['Set-Cookie'],

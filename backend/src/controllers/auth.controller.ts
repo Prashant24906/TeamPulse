@@ -110,7 +110,8 @@ export async function me(
 
     res.status(200).json({
       status: 'success',
-      data: { user },
+      data: { user, token: req.token },
+      token: req.token,
     });
   } catch (err) {
     next(err);
