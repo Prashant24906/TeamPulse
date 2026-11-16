@@ -328,7 +328,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ projectId
   const byStatus = (status: TaskStatus) => (tasks ?? []).filter((t) => t.status === status);
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col flex-1 h-full min-h-0">
       {/* ── Header ─────────────────────────────────────────────────── */}
       <div className="px-4 sm:px-8 pt-4 sm:pt-6 pb-3 sm:pb-4 border-b border-gray-200 bg-white flex-shrink-0">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
@@ -399,7 +399,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ projectId
       </div>
 
       {/* ── Tab Content ─────────────────────────────────────────────── */}
-      <div className="flex-1 overflow-auto">
+      <div className={`flex-1 min-h-0 ${activeTab === 'chat' ? 'overflow-hidden flex flex-col' : 'overflow-auto'}`}>
 
         {/* Board */}
         {activeTab === 'board' && (
@@ -652,7 +652,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ projectId
 
         {/* Chat */}
         {activeTab === 'chat' && (
-          <div className="p-2 sm:p-6 max-w-4xl mx-auto h-full">
+          <div className="flex-1 h-full w-full min-h-0 flex flex-col">
             <ChatPanel teamId={teamId} />
           </div>
         )}

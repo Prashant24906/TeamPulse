@@ -45,7 +45,7 @@ export function MessageInput({ teamId }: Props) {
   };
 
   return (
-    <div className="px-4 py-3 border-t border-gray-800 bg-gray-950/60">
+    <div className="px-4 sm:px-6 md:px-8 py-3.5 border-t border-gray-800 bg-gray-950/80 flex-shrink-0">
       <div className="flex items-end gap-3">
         <div className="flex-1 bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500 transition">
           <textarea

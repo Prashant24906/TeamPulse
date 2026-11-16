@@ -14,7 +14,7 @@ export function ChatPanel({ teamId }: Props) {
 
   if (isError) {
     return (
-      <div className="flex flex-col items-center justify-center gap-3 h-64 text-gray-500">
+      <div className="flex-1 h-full flex flex-col items-center justify-center gap-3 text-gray-500 bg-gray-900">
         <AlertCircle size={24} className="text-red-400" />
         <p className="text-sm">Unable to load messages.</p>
         <button onClick={() => refetch()} className="text-sm text-emerald-400 hover:underline">
@@ -25,12 +25,12 @@ export function ChatPanel({ teamId }: Props) {
   }
 
   return (
-    <div className="flex flex-col bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden h-[calc(100dvh-310px)] md:h-[calc(100vh-270px)] min-h-[380px] shadow-xl">
+    <div className="flex-1 h-full w-full min-h-0 flex flex-col bg-gray-900 overflow-hidden">
       {/* Header */}
-      <div className="px-4 sm:px-5 py-3 border-b border-gray-800 flex-shrink-0 bg-gray-900 flex items-center justify-between">
+      <div className="px-4 sm:px-6 md:px-8 py-3 border-b border-gray-800 flex-shrink-0 bg-gray-900 flex items-center justify-between">
         <div>
           <h3 className="text-xs sm:text-sm font-semibold text-white">Team Chat</h3>
-          <p className="text-[11px] text-gray-500">Visible to team members</p>
+          <p className="text-[11px] text-gray-400">Visible to team members</p>
         </div>
         <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" title="Live connection" />
       </div>
