@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, Send, Loader2, Pencil, Trash2, Check, X, Users } from 'lucide-react';
 import {
   useProjectMessages,
@@ -21,8 +20,7 @@ interface Props {
 }
 
 export function ProjectChatPanel({ projectId, projectName, memberCount }: Props) {
-  const qc = useQueryClient();
-  const { data: messages = [], isLoading, isError, refetch } = useProjectMessages(projectId);
+  const { data: initialMessages = [], isLoading, isError, refetch } = useProjectMessages(projectId);
   const sendMessage = useSendProjectMessage(projectId);
   const updateMessage = useUpdateProjectMessage(projectId);
   const deleteMessage = useDeleteProjectMessage(projectId);
@@ -35,9 +33,26 @@ export function ProjectChatPanel({ projectId, projectName, memberCount }: Props)
     }
   }, [projectId]);
 
-  // Pagination state
+  // Local state for pagination and prepend
+  const [messages, setMessages] = useState<ProjectMessage[]>([]);
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+
+  // Sync initialMessages to local state while preserving loaded history
+  useEffect(() => {
+    if (initialMessages.length > 0) {
+      setMessages((prev) => {
+        if (prev.length === 0) return initialMessages;
+        // Merge without duplicates, preserving order
+        const map = new Map<string, ProjectMessage>();
+        prev.forEach((m) => map.set(m.id, m));
+        initialMessages.forEach((m) => map.set(m.id, m));
+        const merged = Array.from(map.values());
+        merged.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        return merged;
+      });
+    }
+  }, [initialMessages]);
 
   // Composer state
   const [text, setText] = useState('');
@@ -86,8 +101,8 @@ export function ProjectChatPanel({ projectId, projectName, memberCount }: Props)
       }
 
       if (older.length > 0) {
-        // Prepend older messages directly into React Query cache (single source of truth)
-        qc.setQueryData<ProjectMessage[]>(['project-messages', projectId], (prev = []) => {
+        // Prepend older messages and preserve scroll position
+        setMessages((prev) => {
           const map = new Map<string, ProjectMessage>();
           older.forEach((m) => map.set(m.id, m));
           prev.forEach((m) => map.set(m.id, m));
@@ -151,6 +166,9 @@ export function ProjectChatPanel({ projectId, projectName, memberCount }: Props)
     if (!trimmed) return;
     try {
       await updateMessage.mutateAsync({ messageId: msgId, content: trimmed });
+      setMessages((prev) =>
+        prev.map((m) => (m.id === msgId ? { ...m, content: trimmed, updated_at: new Date().toISOString() } : m))
+      );
       setEditingId(null);
     } catch (err) {
       console.error('[project-chat] Failed to update message:', err);
@@ -161,6 +179,7 @@ export function ProjectChatPanel({ projectId, projectName, memberCount }: Props)
     if (!confirm('Delete this message?')) return;
     try {
       await deleteMessage.mutateAsync(msgId);
+      setMessages((prev) => prev.filter((m) => m.id !== msgId));
     } catch (err) {
       console.error('[project-chat] Failed to delete message:', err);
     }
