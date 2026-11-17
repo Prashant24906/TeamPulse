@@ -235,10 +235,6 @@ export function useSocket() {
       id: string; teamId: string; senderId: string;
       senderName: string; content: string; createdAt: string;
     }) => {
-      const existing = qc.getQueryData<TeamMessage[]>(['messages', payload.teamId]);
-      if (existing === undefined) return;
-      if (existing.some((m) => m.id === payload.id)) return;
-
       const newMsg: TeamMessage = {
         id:          payload.id,
         team_id:     payload.teamId,
@@ -248,18 +244,21 @@ export function useSocket() {
         created_at:  payload.createdAt,
         updated_at:  payload.createdAt,
       };
-      qc.setQueryData<TeamMessage[]>(['messages', payload.teamId], [...existing, newMsg]);
+
+      qc.setQueryData<TeamMessage[]>(['messages', payload.teamId], (prev) => {
+        if (!prev) return [newMsg];
+        if (prev.some((m) => m.id === payload.id)) return prev;
+        const merged = [...prev, newMsg];
+        merged.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        return merged;
+      });
     };
 
-    // Project Chat — append new project message to cache
+    // Project Chat — append new project message to cache atomically
     const onProjectMessageCreated = (payload: {
       id: string; projectId: string; senderId: string;
       senderName: string; content: string; createdAt: string;
     }) => {
-      const existing = qc.getQueryData<ProjectMessage[]>(['project-messages', payload.projectId]);
-      if (existing === undefined) return;
-      if (existing.some((m) => m.id === payload.id)) return;
-
       const newMsg: ProjectMessage = {
         id:          payload.id,
         project_id:  payload.projectId,
@@ -269,7 +268,19 @@ export function useSocket() {
         created_at:  payload.createdAt,
         updated_at:  payload.createdAt,
       };
-      qc.setQueryData<ProjectMessage[]>(['project-messages', payload.projectId], [...existing, newMsg]);
+
+      qc.setQueryData<ProjectMessage[]>(['project-messages', payload.projectId], (prev) => {
+        if (!prev) {
+          // If query hasn't populated yet, initialize cache so real-time event is not lost
+          return [newMsg];
+        }
+        if (prev.some((m) => m.id === payload.id)) {
+          return prev;
+        }
+        const merged = [...prev, newMsg];
+        merged.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        return merged;
+      });
     };
 
     // Project Chat — update existing project message in cache
@@ -360,5 +371,5 @@ export function useSocket() {
       socket.off('project.message.deleted', onProjectMessageDeleted);
       socket.off('notification.received', onNotificationReceived);
     };
-  }, [qc, user, isAuthLoading]);
+  }, [qc, user?.id, isAuthLoading]);
 }

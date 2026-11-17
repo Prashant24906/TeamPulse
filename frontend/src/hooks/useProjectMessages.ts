@@ -12,13 +12,25 @@ interface ProjectMessageResponse  { status: string; data: { message: ProjectMess
 // ---------------------------------------------------------------------------
 
 export function useProjectMessages(projectId: string) {
+  const qc = useQueryClient();
   return useQuery<ProjectMessage[]>({
     queryKey: ['project-messages', projectId],
     queryFn:  async () => {
       const res = await api.get<ProjectMessagesResponse>(`/projects/${projectId}/messages`, {
         params: { limit: 50 },
       });
-      return res.data.data.messages;
+      const fetched = res.data.data.messages;
+
+      // Merge with any real-time messages that arrived via WebSocket while this query was in-flight
+      const current = qc.getQueryData<ProjectMessage[]>(['project-messages', projectId]);
+      if (!current || current.length === 0) return fetched;
+
+      const map = new Map<string, ProjectMessage>();
+      fetched.forEach((m) => map.set(m.id, m));
+      current.forEach((m) => map.set(m.id, m));
+      const merged = Array.from(map.values());
+      merged.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      return merged;
     },
     enabled:   !!projectId,
     staleTime: Infinity, // messages are kept fresh via WS; no polling needed
@@ -41,7 +53,9 @@ export function useSendProjectMessage(projectId: string) {
       // The WS event will also arrive, but deduplication prevents doubles.
       qc.setQueryData<ProjectMessage[]>(['project-messages', projectId], (prev = []) => {
         if (prev.some((m) => m.id === newMsg.id)) return prev;
-        return [...prev, newMsg];
+        const merged = [...prev, newMsg];
+        merged.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        return merged;
       });
     },
   });
