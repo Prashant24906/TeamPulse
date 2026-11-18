@@ -20,7 +20,9 @@ interface Props {
 }
 
 export function ProjectChatPanel({ projectId, projectName, memberCount }: Props) {
-  const { data: initialMessages = [], isLoading, isError, refetch } = useProjectMessages(projectId);
+  // useProjectMessages returns the React Query cache directly (staleTime: Infinity, updated via WS).
+  // We render from this directly so incoming socket events are immediately visible.
+  const { data: liveMessages = [], isLoading, isError, refetch } = useProjectMessages(projectId);
   const sendMessage = useSendProjectMessage(projectId);
   const updateMessage = useUpdateProjectMessage(projectId);
   const deleteMessage = useDeleteProjectMessage(projectId);
@@ -33,26 +35,31 @@ export function ProjectChatPanel({ projectId, projectName, memberCount }: Props)
     }
   }, [projectId]);
 
-  // Local state for pagination and prepend
-  const [messages, setMessages] = useState<ProjectMessage[]>([]);
+  // olderMessages holds pages loaded via "Load older messages" pagination.
+  // These are prepended to the live RQ cache; they are NEVER in the RQ cache
+  // because they are loaded imperatively via api.get, not via useQuery.
+  const [olderMessages, setOlderMessages] = useState<ProjectMessage[]>([]);
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
-  // Sync initialMessages to local state while preserving loaded history
+  // Reset pagination state whenever the project changes
   useEffect(() => {
-    if (initialMessages.length > 0) {
-      setMessages((prev) => {
-        if (prev.length === 0) return initialMessages;
-        // Merge without duplicates, preserving order
-        const map = new Map<string, ProjectMessage>();
-        prev.forEach((m) => map.set(m.id, m));
-        initialMessages.forEach((m) => map.set(m.id, m));
-        const merged = Array.from(map.values());
-        merged.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-        return merged;
-      });
-    }
-  }, [initialMessages]);
+    setOlderMessages([]);
+    setHasMore(true);
+  }, [projectId]);
+
+  // Derive the final display list: older pages + live cache (deduplicated, sorted).
+  // This is a pure derivation — no setState needed, no extra useEffect.
+  const messages = React.useMemo<ProjectMessage[]>(() => {
+    if (olderMessages.length === 0) return liveMessages;
+    const map = new Map<string, ProjectMessage>();
+    olderMessages.forEach((m) => map.set(m.id, m));
+    // liveMessages wins on conflict (more up-to-date content for edits)
+    liveMessages.forEach((m) => map.set(m.id, m));
+    const merged = Array.from(map.values());
+    merged.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    return merged;
+  }, [liveMessages, olderMessages]);
 
   // Composer state
   const [text, setText] = useState('');
@@ -101,14 +108,12 @@ export function ProjectChatPanel({ projectId, projectName, memberCount }: Props)
       }
 
       if (older.length > 0) {
-        // Prepend older messages and preserve scroll position
-        setMessages((prev) => {
+        // Prepend older messages into olderMessages; the useMemo derives the final list.
+        setOlderMessages((prev) => {
           const map = new Map<string, ProjectMessage>();
           older.forEach((m) => map.set(m.id, m));
           prev.forEach((m) => map.set(m.id, m));
-          const merged = Array.from(map.values());
-          merged.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-          return merged;
+          return Array.from(map.values());
         });
 
         requestAnimationFrame(() => {
@@ -165,8 +170,11 @@ export function ProjectChatPanel({ projectId, projectName, memberCount }: Props)
     const trimmed = editText.trim();
     if (!trimmed) return;
     try {
+      // updateMessage.onSuccess already updates the React Query cache;
+      // liveMessages will re-derive with the edited content automatically.
       await updateMessage.mutateAsync({ messageId: msgId, content: trimmed });
-      setMessages((prev) =>
+      // Also patch olderMessages if the edited message was loaded via pagination
+      setOlderMessages((prev) =>
         prev.map((m) => (m.id === msgId ? { ...m, content: trimmed, updated_at: new Date().toISOString() } : m))
       );
       setEditingId(null);
@@ -178,8 +186,10 @@ export function ProjectChatPanel({ projectId, projectName, memberCount }: Props)
   const handleDelete = async (msgId: string) => {
     if (!confirm('Delete this message?')) return;
     try {
+      // deleteMessage.onSuccess already removes from the React Query cache;
+      // also remove from olderMessages if it was loaded via pagination.
       await deleteMessage.mutateAsync(msgId);
-      setMessages((prev) => prev.filter((m) => m.id !== msgId));
+      setOlderMessages((prev) => prev.filter((m) => m.id !== msgId));
     } catch (err) {
       console.error('[project-chat] Failed to delete message:', err);
     }
